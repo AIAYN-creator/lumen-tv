@@ -59,9 +59,16 @@ object AppRepository {
         }
         cache.keys.retainAll(seen)
 
-        // Favourites in their configured order, then Lumen's own apps, then the rest A–Z.
+        // Favourites in their configured order, then Lumen's own apps, then its companions
+        // (HOUSE_APPS), then the rest A–Z.
         apps.sortedWith(compareBy<TvApp> { app ->
             Config.FAVORITES.indexOf(app.id).let { if (it < 0) Int.MAX_VALUE else it }
-        }.thenBy { it.packageName != context.packageName }.thenBy { it.label.lowercase() })
+        }.thenBy {
+            when {
+                it.packageName == context.packageName -> 0
+                it.packageName in Config.HOUSE_APPS -> 1
+                else -> 2
+            }
+        }.thenBy { it.label.lowercase() })
     }
 }

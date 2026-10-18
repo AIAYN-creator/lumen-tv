@@ -60,6 +60,7 @@ Qué hace:
 - Botones de atrás, inicio, play/pausa, salvapantallas, modo noche y pista anterior/siguiente.
 - El volumen **no** se puede controlar desde aquí. El Chromecast saca el HDMI siempre a volumen máximo, y esta Philips ignora el volumen por HDMI-CEC (lo probé: lo recibe y no hace nada). Para controlar el volumen hará falta el emisor de infrarrojos con ESP32 (fase 2).
 - Lanzar apps, ver qué suena y escribir en la tele con el teclado del móvil.
+- **Enviar pantalla:** los pasos para ver el móvil en la tele, según el sistema. Los Android usan el Chromecast integrado (Google Home → Comedor → "Enviar mi pantalla"). Los iPhone usan AirPlay a través de [AirScreen](https://play.google.com/store/apps/details?id=com.ionitech.airscreen), una app gratuita con anuncios instalada en la tele. Hay un botón que la abre desde el móvil. Lumen no hace el mirroring: solo explica los pasos y abre la app.
 
 Cómo funciona: `RemoteService` es un servicio de accesibilidad de Lumen, la vía oficial de Android para que una app haga de mando. Además sirve la web en el puerto 8765 y solo responde a direcciones de la red local. También mantiene un "WiFi lock" que desactiva el ahorro de energía del WiFi; sin él, cada pulsación tardaba ~1 s.
 

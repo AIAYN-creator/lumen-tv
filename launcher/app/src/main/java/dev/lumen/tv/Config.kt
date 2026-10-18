@@ -45,4 +45,9 @@ object Config {
         "com.spotify.tv.android",
         "dev.lumen.tv/dev.lumen.tv.radio.RadioActivity",
     )
+
+    /** Other apps that go with Lumen's own in "Todas las apps", right after them. */
+    val HOUSE_APPS = listOf(
+        "com.ionitech.airscreen", // AirPlay receiver: mirroring from iPhones (Android phones use Cast)
+    )
 }

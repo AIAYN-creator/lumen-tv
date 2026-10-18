@@ -134,6 +134,12 @@
   .chip { height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line); color: var(--text-2); font-size: 14px; }
   .chip.on { background: var(--text); color: #000; border-color: var(--text); }
   .sheet .msg { font-size: 12px; color: var(--text-3); margin-top: 10px; min-height: 15px; }
+  /* Screen sharing help: numbered steps, one set per phone system */
+  .steps { margin: 14px 0 0; padding: 0; list-style: none; counter-reset: step; }
+  .steps li { counter-increment: step; display: flex; gap: 12px; padding: 9px 0; font-size: 15px; line-height: 1.4; color: var(--text-2); }
+  .steps li::before { content: counter(step); flex: none; width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--line); display: grid; place-items: center; font-size: 12px; font-weight: 600; color: var(--text-3); margin-top: 1px; }
+  .steps b { color: var(--text); font-weight: 600; }
+  .tip { font-size: 13px; color: var(--text-3); line-height: 1.45; margin-top: 8px; }
   #noteList { margin-top: 10px; max-height: 32vh; overflow-y: auto; }
   .noteItem { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); }
   .noteItem .txt { flex: 1; min-width: 0; }
@@ -208,6 +214,7 @@
 <div class="extras">
   <button class="extra" id="openNote"><span class="label">Nota</span><span class="val" id="noteVal">Dejar una nota</span></button>
   <button class="extra" id="openSleep"><span class="label">Temporizador</span><span class="val" id="sleepVal">Apagar la tele en…</span></button>
+  <button class="extra" id="openCast" style="grid-column:1/3"><span class="label">Enviar pantalla</span><span class="val">Ver el móvil en la tele</span></button>
   <a class="extra" href="/geo" style="grid-column:1/3;text-decoration:none;color:inherit"><span class="label">Juego</span><span class="val">GeoGuesser València · unirme a la partida</span></a>
 </div>
 
@@ -257,6 +264,36 @@
     <button class="primary" id="startSleep">Iniciar</button>
   </div>
   <div class="msg" id="sleepMsg"></div>
+</div>
+
+<!--
+  Mirroring isn't Lumen's: iPhones use AirPlay through the AirScreen app on the TV, Android phones
+  use the Chromecast's own Cast receiver. This sheet only explains the steps for each.
+-->
+<div class="sheet" id="castSheet">
+  <div class="head"><span class="label">Ver el móvil en la tele</span></div>
+  <div class="chips" id="castOs">
+    <button class="chip" data-os="ios">iPhone</button>
+    <button class="chip" data-os="android">Android</button>
+  </div>
+  <div id="castIos">
+    <ol class="steps">
+      <li><span>Abre <b>AirScreen</b> en la tele con el botón de abajo.</span></li>
+      <li><span>En el iPhone, abre el <b>Centro de control</b>: desliza hacia abajo desde la esquina de arriba a la derecha.</span></li>
+      <li><span>Toca <b>Duplicar pantalla</b> (los dos rectángulos) y elige la tele.</span></li>
+    </ol>
+    <div class="row"><button class="primary" id="openAirScreen" style="flex:1">Abrir AirScreen en la tele</button></div>
+    <div class="tip">Para vídeos y fotos, usa el icono de AirPlay dentro de la app: va mejor que duplicar la pantalla. Para dejar de duplicar, vuelve a tocar "Duplicar pantalla" → "Dejar de duplicar".</div>
+  </div>
+  <div id="castAndroid">
+    <ol class="steps">
+      <li><span>Abre la app <b>Google Home</b> (si no la tienes, está en Play Store).</span></li>
+      <li><span>Toca <b>Comedor</b>, que es la tele.</span></li>
+      <li><span>Toca <b>Enviar mi pantalla</b> → <b>Empezar ahora</b>.</span></li>
+    </ol>
+    <div class="tip">Atajo: baja la persiana de ajustes rápidos y toca <b>Enviar pantalla</b> (en Samsung, <b>Smart View</b>) y elige Comedor. Para vídeos, usa el icono de enviar dentro de YouTube, Fotos, Netflix…: va mejor que duplicar la pantalla.</div>
+  </div>
+  <div class="msg" id="castMsg"></div>
 </div>
 
 <script>
@@ -479,6 +516,22 @@
     $("sleepMsg").textContent = ""; startSleep(m);
   };
   $("cancelSleep").onclick = () => startSleep(0);
+  // ---------------------------------------------------------------- screen sharing help
+  const isIos = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  function castOs(os) {
+    document.querySelectorAll("#castOs .chip").forEach((c) => c.classList.toggle("on", c.dataset.os === os));
+    $("castIos").style.display = os === "ios" ? "" : "none";
+    $("castAndroid").style.display = os === "android" ? "" : "none";
+  }
+  document.querySelectorAll("#castOs .chip").forEach((c) => (c.onclick = () => { haptic(); castOs(c.dataset.os); }));
+  $("openCast").onclick = () => { haptic(); $("castMsg").textContent = ""; castOs(isIos ? "ios" : "android"); openSheet("castSheet"); };
+  $("openAirScreen").onclick = async () => {
+    haptic();
+    const r = await post("/api/launch?pkg=com.ionitech.airscreen").catch(() => null);
+    $("castMsg").textContent = r && r.ok ? "Abierto en la tele. Ahora, Duplicar pantalla en el iPhone."
+      : "AirScreen no está instalada en la tele.";
+  };
+
   $("openSleep").onclick = () => { haptic(); $("sleepMin").value = ""; $("sleepMsg").textContent = ""; openSheet("sleepSheet"); };
 
   function renderExtras() {
