@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- The GeoGuesser TV page is served by Lumen itself, on this device. -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">127.0.0.1</domain>
+        <domain includeSubdomains="false">localhost</domain>
+    </domain-config>
+    <!-- COPE group radio streams are only offered over plain HTTP. -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">flumotion.com</domain>
+    </domain-config>
+    <!--
+        metrovalencia.es serves its certificate without the Sectigo intermediate, and the
+        Chromecast doesn't ship Sectigo's R46 root, so trust that intermediate for this domain only.
+    -->
+    <domain-config>
+        <domain includeSubdomains="true">metrovalencia.es</domain>
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="@raw/sectigo_ov_r36" />
+        </trust-anchors>
+    </domain-config>
+</network-security-config>

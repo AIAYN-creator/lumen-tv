@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<!-- Laid out on a 1920-wide canvas; the TV's WebView scales it to the screen. -->
+<meta name="viewport" content="width=1920">
+<title>GeoGuesser València</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  @font-face { font-family: Inter; src: url(/inter.ttf) format("truetype"); font-weight: 100 900; }
+  :root { --t2: rgba(255,255,255,.72); --t3: rgba(255,255,255,.46); --line: rgba(255,255,255,.16); }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #050507; color: #fff; overflow: hidden;
+    font-family: Inter, system-ui, sans-serif; font-feature-settings: "tnum"; -webkit-font-smoothing: antialiased; }
+  .label { font-size: 15px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: var(--t3); }
+  .screen { position: absolute; inset: 0; display: none; }
+  .screen.on { display: block; }
+  .pad { position: absolute; inset: 64px 84px; }
+
+  /* Lobby */
+  #lobby h1 { font-weight: 200; font-size: 84px; letter-spacing: -.03em; margin: 22px 0 10px; line-height: 1.02; }
+  #lobby .sub { font-size: 28px; font-weight: 300; color: var(--t2); }
+  #lobby .qr { position: absolute; right: 0; top: 40px; text-align: center; }
+  #lobby .qr img { width: 300px; height: 300px; background: #fff; padding: 18px; border-radius: 22px; image-rendering: pixelated; }
+  #lobby .qr .label { margin-top: 18px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 14px; }
+  .chip { display: flex; align-items: center; gap: 12px; padding: 12px 22px; border: 1px solid var(--line); border-radius: 999px; font-size: 24px; }
+  .chip i { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+  .chip.done { border-color: rgba(255,255,255,.5); }
+  #lobby .players { position: absolute; left: 0; bottom: 90px; right: 0; }
+  .foot { position: absolute; left: 0; bottom: 0; }
+  .err { color: #FF9F0A; font-size: 22px; margin-top: 18px; }
+
+  /* Round */
+  #round img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  #round .shade { position: absolute; inset: 0; background: linear-gradient(rgba(0,0,0,.65), transparent 22%, transparent 70%, rgba(0,0,0,.8)); }
+  #round .top { position: absolute; left: 84px; right: 84px; top: 52px; display: flex; justify-content: space-between; align-items: flex-start; }
+  #clock { font-weight: 200; font-size: 96px; line-height: 1; letter-spacing: -.03em; }
+  #clock.late { color: #FF453A; }
+  #round .bottom { position: absolute; left: 84px; right: 84px; bottom: 52px; display: flex; justify-content: space-between; align-items: flex-end; }
+
+  /* Reveal */
+  #map { position: absolute; left: 0; top: 0; bottom: 0; width: 64%; background: #0b0b0e; }
+  #panel { position: absolute; right: 0; top: 0; bottom: 0; width: 36%; padding: 64px 64px 56px; display: flex; flex-direction: column; border-left: 1px solid var(--line); }
+  #revealPhoto { width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 12px; margin: 18px 0 26px; }
+  .row { display: flex; align-items: center; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--line); font-size: 24px; }
+  .row .n { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .d { color: var(--t2); font-weight: 300; }
+  .row .p { min-width: 110px; text-align: right; font-weight: 600; }
+  .row i { width: 12px; height: 12px; border-radius: 50%; }
+  #panel .foot { position: static; padding-top: 24px; }
+  /* Late joiners: a small QR at the bottom of the solution panel. */
+  .joinLate { margin-top: auto; display: flex; align-items: center; gap: 18px; }
+  .joinLate img { flex: none; width: 96px; height: 96px; aspect-ratio: 1; object-fit: contain; box-sizing: border-box; background: #fff; padding: 6px; border-radius: 10px; image-rendering: pixelated; }
+  .pin { width: 18px; height: 18px; border-radius: 50%; border: 3px solid #050507; box-shadow: 0 0 0 2px rgba(255,255,255,.7); }
+  .target { width: 26px; height: 26px; border-radius: 50%; background: #fff; border: 5px solid #050507; box-shadow: 0 0 0 3px #fff; }
+  /* OpenStreetMap tiles, darkened to match Lumen (markers live in another pane, unaffected). */
+  .leaflet-tile-pane { filter: invert(100%) hue-rotate(180deg) brightness(92%) contrast(88%) saturate(60%); }
+  .leaflet-container { background: #0b0b0e; font-family: Inter, sans-serif; }
+  .leaflet-control-attribution { background: rgba(0,0,0,.5) !important; color: var(--t3) !important; font-size: 11px !important; }
+  .leaflet-control-attribution a { color: var(--t2) !important; }
+
+  /* Final */
+  #final .podium { margin-top: 40px; }
+  #final .first { font-weight: 200; font-size: 110px; letter-spacing: -.03em; line-height: 1.05; margin: 14px 0 6px; }
+  #final .firstScore { font-size: 34px; font-weight: 300; color: var(--t2); margin-bottom: 40px; }
+  #final .row { font-size: 30px; max-width: 900px; }
+
+  .center { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 18px; }
+  .big { font-weight: 200; font-size: 64px; }
+</style>
+</head>
+<body>
+
+<section class="screen" id="lobby"><div class="pad">
+  <div class="label">GeoGuesser · València</div>
+  <h1>¿Cuánto conoces<br>València?</h1>
+  <div class="sub">5 rondas · 2 minutos por foto · cuanto más cerca, más puntos</div>
+  <div class="err" id="err"></div>
+  <div class="qr"><img id="qr" alt="QR para unirse"><div class="label">Escanea para jugar</div></div>
+  <div class="players"><div class="label" style="margin-bottom:16px">Jugadores</div><div class="chips" id="lobbyPlayers"></div></div>
+  <div class="foot label" id="lobbyFoot"></div>
+</div></section>
+
+<section class="screen" id="loading"><div class="center">
+  <div class="label">GeoGuesser · València</div><div class="big">Buscando rincones de València…</div>
+</div></section>
+
+<section class="screen" id="round">
+  <img id="photo" alt="">
+  <div class="shade"></div>
+  <div class="top"><div class="label" id="roundLabel" style="color:#fff"></div><div id="clock"></div></div>
+  <div class="bottom"><div class="chips" id="roundPlayers"></div><div class="label">OK · ver solución   ·   Atrás · volver a la sala</div></div>
+</section>
+
+<section class="screen" id="reveal">
+  <div id="map"></div>
+  <div id="panel">
+    <div class="label" id="revealLabel"></div>
+    <img id="revealPhoto" alt="">
+    <div id="results"></div>
+    <div class="joinLate"><img src="/api/geo/qr" alt=""><span class="label">¿Alguien más? Escanea para unirte</span></div>
+    <div class="foot label" id="revealFoot"></div>
+  </div>
+</section>
+
+<section class="screen" id="final"><div class="pad">
+  <div class="label">GeoGuesser · València · Resultado final</div>
+  <div class="podium">
+    <div class="label">Ganador</div>
+    <div class="first" id="winner"></div>
+    <div class="firstScore" id="winnerScore"></div>
+    <div id="standings"></div>
+  </div>
+  <div class="foot label">OK · volver a la sala para otra partida</div>
+</div></section>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const fmtPts = (n) => n.toLocaleString("es-ES");
+  const fmtDist = (m) => m < 1000 ? m + " m" : (m / 1000).toLocaleString("es-ES", { maximumFractionDigits: 1 }) + " km";
+  let state = null, skew = 0, map = null, layer = null, shownReveal = -1;
+
+  $("qr").src = "/api/geo/qr";
+
+  function show(id) { document.querySelectorAll(".screen").forEach((s) => s.classList.toggle("on", s.id === id)); }
+
+  function chips(el, players, withDone) {
+    el.innerHTML = "";
+    players.forEach((p) => {
+      const c = document.createElement("div");
+      c.className = "chip" + (withDone && p.answered ? " done" : "");
+      c.innerHTML = '<i></i><span></span>' + (withDone && p.answered ? " ✓" : "");
+      c.querySelector("i").style.background = p.colour;
+      c.querySelector("span").textContent = p.name;
+      el.appendChild(c);
+    });
+  }
+
+  function renderReveal(s) {
+    show("reveal");
+    $("revealLabel").textContent = "Ronda " + s.round + " de " + s.rounds + " · solución";
+    $("revealPhoto").src = s.image;
+    const rows = s.guesses.slice().sort((a, b) => b.points - a.points);
+    $("results").innerHTML = rows.length ? "" : '<div class="row"><span class="n d">Nadie respondió a tiempo</span></div>';
+    rows.forEach((g) => {
+      const r = document.createElement("div"); r.className = "row";
+      r.innerHTML = '<i></i><span class="n"></span><span class="d"></span><span class="p"></span>';
+      r.querySelector("i").style.background = g.colour;
+      r.querySelector(".n").textContent = g.name;
+      r.querySelector(".d").textContent = fmtDist(g.meters);
+      r.querySelector(".p").textContent = "+" + fmtPts(g.points);
+      $("results").appendChild(r);
+    });
+    $("revealFoot").textContent = (s.round >= s.rounds ? "OK · ver resultados" : "OK · siguiente ronda") + "   ·   Atrás · sala";
+    if (shownReveal === s.round) return; // map already drawn for this round
+    shownReveal = s.round;
+    if (!map) {
+      map = L.map("map", { zoomControl: false, attributionControl: true });
+      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "© OpenStreetMap", maxZoom: 19 }).addTo(map);
+    }
+    setTimeout(() => {
+      map.invalidateSize();
+      if (layer) layer.remove();
+      layer = L.layerGroup().addTo(map);
+      const t = [s.target.lat, s.target.lon];
+      const pts = [t];
+      s.guesses.forEach((g) => {
+        const p = [g.lat, g.lon]; pts.push(p);
+        L.polyline([p, t], { color: g.colour, weight: 3, dashArray: "6 8", opacity: .9 }).addTo(layer);
+        L.marker(p, { icon: L.divIcon({ className: "", html: '<div class="pin" style="background:' + g.colour + '"></div>', iconSize: [18, 18], iconAnchor: [9, 9] }) }).addTo(layer);
+      });
+      L.marker(t, { icon: L.divIcon({ className: "", html: '<div class="target"></div>', iconSize: [26, 26], iconAnchor: [13, 13] }), zIndexOffset: 1000 }).addTo(layer);
+      if (pts.length > 1) map.fitBounds(pts, { padding: [90, 90], maxZoom: 16 }); else map.setView(t, 15);
+    }, 50);
+  }
+
+  function render(s) {
+    if (s.phase === "LOBBY") {
+      show("lobby");
+      chips($("lobbyPlayers"), s.players, false);
+      $("lobbyFoot").textContent = (s.players.length ? "OK · empezar partida" : "Esperando jugadores…") + "   ·   Atrás · salir";
+      $("err").textContent = s.error || "";
+      shownReveal = -1;
+    } else if (s.phase === "LOADING") {
+      show("loading");
+    } else if (s.phase === "ROUND") {
+      show("round");
+      if ($("photo").getAttribute("src") !== s.image) $("photo").src = s.image;
+      $("roundLabel").textContent = "Ronda " + s.round + " / " + s.rounds;
+      chips($("roundPlayers"), s.players, true);
+    } else if (s.phase === "REVEAL") {
+      renderReveal(s);
+    } else if (s.phase === "FINAL") {
+      show("final");
+      const [first, ...rest] = s.players;
+      $("winner").textContent = first ? first.name : "";
+      $("winnerScore").textContent = first ? fmtPts(first.score) + " puntos" : "";
+      $("standings").innerHTML = "";
+      rest.forEach((p, i) => {
+        const r = document.createElement("div"); r.className = "row";
+        r.innerHTML = '<span class="d">' + (i + 2) + '.</span><i></i><span class="n"></span><span class="p"></span>';
+        r.querySelector("i").style.background = p.colour;
+        r.querySelector(".n").textContent = p.name;
+        r.querySelector(".p").textContent = fmtPts(p.score);
+        $("standings").appendChild(r);
+      });
+    }
+  }
+
+  function tick() {
+    if (state && state.phase === "ROUND") {
+      const left = Math.max(0, Math.round((state.deadline - (Date.now() + skew)) / 1000));
+      $("clock").textContent = Math.floor(left / 60) + ":" + String(left % 60).padStart(2, "0");
+      $("clock").classList.toggle("late", left <= 15);
+    }
+  }
+
+  async function poll() {
+    try {
+      const s = await (await fetch("/api/geo/state", { cache: "no-store" })).json();
+      skew = s.now - Date.now();
+      state = s;
+      render(s);
+    } catch (e) {}
+  }
+  poll(); setInterval(poll, 800); setInterval(tick, 250);
+
+  // OK on the TV remote (WebView turns it into Enter).
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.keyCode === 13 || e.keyCode === 23) {
+      e.preventDefault();
+      fetch("/api/geo/advance", { method: "POST" }).then(() => setTimeout(poll, 150));
+    }
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+# Secrets: stay on this PC, deploy.ps1 copies them to the TV
+mapillary-token.txt
+lumen-admin.txt
+
+# Personal photos and downloaded videos (Mixkit licence: don't redistribute)
+wallpapers/*
+!wallpapers/.gitkeep
+ambientes/*
+!ambientes/CREDITOS.txt
+
+# Build output and local tooling (see also launcher/.gitignore)
+.gradle/
+.kotlin/
+build/
+local.properties
+.idea/
+*.iml

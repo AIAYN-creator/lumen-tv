@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#000000">
+<link rel="apple-touch-icon" href="/icon.png">
+<title>GeoGuesser València</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  @font-face { font-family: Inter; src: url(/inter.ttf) format("truetype"); font-weight: 100 900; font-display: swap; }
+  :root { --t2: rgba(255,255,255,.72); --t3: rgba(255,255,255,.46); --line: rgba(255,255,255,.14); --fill: rgba(255,255,255,.06); }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; background: #000; color: #fff; overscroll-behavior: none;
+    font-family: Inter, -apple-system, system-ui, sans-serif; font-feature-settings: "tnum"; -webkit-font-smoothing: antialiased; }
+  .label { font-size: 11px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: var(--t3); }
+  /* Admin gesture target: big enough to hit, no double-tap zoom or text selection eating taps. */
+  .brand { display: block; padding: 14px 0; margin: -14px 0; cursor: pointer; touch-action: manipulation;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; transition: opacity .12s; }
+  .brand.tap { opacity: .45; }
+  .screen { position: fixed; inset: 0; display: none; padding: calc(env(safe-area-inset-top) + 20px) 22px calc(env(safe-area-inset-bottom) + 22px); flex-direction: column; }
+  .screen.on { display: flex; }
+  h1 { font-weight: 200; font-size: 40px; letter-spacing: -.03em; line-height: 1.05; margin: 14px 0 8px; }
+  p { color: var(--t2); font-size: 16px; line-height: 1.45; margin: 0; }
+  input { height: 52px; border-radius: 14px; border: 1px solid var(--line); background: var(--fill); color: #fff; font: 17px Inter, system-ui; padding: 0 16px; outline: none; width: 100%; margin-top: 22px; }
+  button { font: inherit; border: 0; cursor: pointer; }
+  .primary { height: 52px; border-radius: 14px; background: #fff; color: #000; font-weight: 600; font-size: 17px; width: 100%; margin-top: 12px; }
+  .primary:disabled { opacity: .35; }
+  .list { margin-top: 22px; }
+  .row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); font-size: 16px; }
+  .row i { width: 10px; height: 10px; border-radius: 50%; }
+  .row .n { flex: 1; } .row .p { font-weight: 600; }
+  .row.me .n { font-weight: 600; }
+
+  /* Guessing */
+  #play { padding: 0; }
+  #map { position: absolute; inset: 0; background: #0b0b0e; }
+  .bar { position: absolute; left: 0; right: 0; z-index: 500; padding: 0 16px; }
+  .bar.top { top: calc(env(safe-area-inset-top) + 12px); display: flex; justify-content: space-between; align-items: center; }
+  .bar.bottom { bottom: calc(env(safe-area-inset-bottom) + 16px); }
+  .pill { background: rgba(0,0,0,.72); border: 1px solid var(--line); border-radius: 999px; padding: 9px 16px; font-size: 15px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+  #clock { font-size: 18px; font-weight: 500; } #clock.late { color: #FF453A; }
+  .pin { width: 20px; height: 20px; border-radius: 50%; border: 3px solid #000; box-shadow: 0 0 0 2px #fff; }
+  .target { width: 24px; height: 24px; border-radius: 50%; background: #fff; border: 5px solid #000; box-shadow: 0 0 0 3px #fff; }
+  /* OpenStreetMap tiles, darkened to match Lumen (markers live in another pane, unaffected). */
+  .leaflet-tile-pane { filter: invert(100%) hue-rotate(180deg) brightness(92%) contrast(88%) saturate(60%); }
+  .leaflet-container { background: #0b0b0e; font-family: Inter, sans-serif; }
+  .leaflet-control-attribution { background: rgba(0,0,0,.55) !important; color: var(--t3) !important; }
+  .leaflet-control-attribution a { color: var(--t2) !important; }
+  /* The remote installed as a home-screen app has no browser back button. */
+  .kick { width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--line); background: none; color: var(--t2); margin-left: 6px; }
+  .ghost { height: 46px; border-radius: 14px; border: 1px solid var(--line); background: none; color: var(--t2); font-size: 15px; width: 100%; margin-top: auto; }
+  .back { display: inline-block; text-decoration: none; color: var(--t2); margin-bottom: 18px; }
+  .big { font-weight: 200; font-size: 56px; letter-spacing: -.03em; margin: 10px 0 4px; }
+</style>
+</head>
+<body>
+
+<section class="screen" id="join">
+  <a class="back label" href="/">← Mando</a>
+  <div class="label brand" role="button">GeoGuesser · València</div>
+  <h1>¿Cuánto conoces València?</h1>
+  <p>Verás una calle en la tele. Toca en el mapa dónde crees que está. 5 rondas, 2 minutos cada una.</p>
+  <input id="name" maxlength="16" placeholder="Tu nombre" autocomplete="given-name">
+  <button class="primary" id="joinBtn">Unirme</button>
+</section>
+
+<section class="screen" id="wait">
+  <a class="back label" href="/">← Mando</a>
+  <div class="label brand" role="button">GeoGuesser · València</div>
+  <h1 id="waitTitle"></h1>
+  <p id="waitText"></p>
+  <div class="list" id="waitList"></div>
+  <button class="ghost leave">Salir de la partida</button>
+</section>
+
+<section class="screen" id="play">
+  <div id="map"></div>
+  <div class="bar top"><span class="pill" id="roundPill"></span><span class="pill" id="clock"></span></div>
+  <div class="bar bottom"><button class="primary" id="confirm" disabled style="margin:0">Toca el mapa para marcar</button></div>
+</section>
+
+<section class="screen" id="result">
+  <a class="back label" href="/">← Mando</a>
+  <div class="label brand" role="button">GeoGuesser · València</div>
+  <div class="label" id="resultLabel"></div>
+  <div class="big" id="resultPoints"></div>
+  <p id="resultDist"></p>
+  <div class="list" id="resultList"></div>
+  <button class="ghost leave">Salir de la partida</button>
+</section>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const fmtPts = (n) => n.toLocaleString("es-ES");
+  const fmtDist = (m) => m < 1000 ? m + " m" : (m / 1000).toLocaleString("es-ES", { maximumFractionDigits: 1 }) + " km";
+  const VALENCIA = [39.4699, -0.3763];
+  let id = null, state = null, skew = 0, map = null, pin = null, guess = null, mapRound = -1;
+  try { id = localStorage.getItem("lumen.geo.id"); $("name").value = localStorage.getItem("lumen.author") || ""; } catch (e) {}
+
+  function show(s) { document.querySelectorAll(".screen").forEach((x) => x.classList.toggle("on", x.id === s)); }
+  function haptic() { if (navigator.vibrate) navigator.vibrate(10); }
+
+  $("joinBtn").onclick = async () => {
+    const name = $("name").value.trim();
+    if (!name) { $("name").focus(); return; }
+    const r = await fetch("/api/geo/join", { method: "POST", body: JSON.stringify({ name }) });
+    id = (await r.json()).id;
+    try { localStorage.setItem("lumen.geo.id", id); localStorage.setItem("lumen.author", name); } catch (e) {}
+    haptic(); poll();
+  };
+
+  // ---------------------------------------------------------------- admin
+  // Five quick taps on "GeoGuesser · València" ask for the admin code (lumen-admin.txt in the
+  // project). A phone that enters it stays admin and can remove any player.
+  let admin = null;
+  try { admin = localStorage.getItem("lumen.geo.admin"); } catch (e) {}
+  let taps = 0, tapTimer = null;
+  function markAdmin() {
+    document.querySelectorAll(".brand").forEach((el) => el.textContent = "GeoGuesser · València" + (admin ? " · Admin" : ""));
+  }
+  document.querySelectorAll(".brand").forEach((el) => el.addEventListener("pointerup", async () => {
+    // iOS Safari doesn't send "click" for plain text, so listen to the raw touch instead.
+    el.classList.add("tap"); setTimeout(() => el.classList.remove("tap"), 120);
+    taps++; clearTimeout(tapTimer); tapTimer = setTimeout(() => taps = 0, 2500);
+    if (taps < 5) return;
+    taps = 0;
+    const code = prompt(admin ? "Ya eres admin en este móvil. Escribe el código otra vez para cambiarlo, o deja vacío para quitarlo:" : "Código de administrador");
+    if (code === null) return;
+    if (!code.trim()) { admin = null; try { localStorage.removeItem("lumen.geo.admin"); } catch (e) {} markAdmin(); poll(); return; }
+    const r = await (await fetch("/api/geo/admin", { method: "POST", body: JSON.stringify({ code }) })).json();
+    if (r.ok) { admin = code.trim(); try { localStorage.setItem("lumen.geo.admin", admin); } catch (e) {} haptic(); alert("Modo administrador activado en este móvil."); }
+    else alert("Código incorrecto.");
+    markAdmin(); poll();
+  }));
+  markAdmin();
+
+  async function kick(name) {
+    if (!admin || !confirm("¿Quitar a " + name + " de la partida?")) return;
+    haptic();
+    await fetch("/api/geo/kick", { method: "POST", body: JSON.stringify({ code: admin, name }) });
+    poll();
+  }
+
+  // Leave the game: the TV drops you from the player list; you can join again later.
+  document.querySelectorAll(".leave").forEach((b) => b.onclick = async () => {
+    haptic();
+    if (id) await fetch("/api/geo/leave", { method: "POST", body: JSON.stringify({ id }) }).catch(() => {});
+    id = null;
+    try { localStorage.removeItem("lumen.geo.id"); } catch (e) {}
+    poll();
+  });
+
+  function ranking(el, players) {
+    el.innerHTML = "";
+    players.forEach((p, i) => {
+      const r = document.createElement("div"); r.className = "row" + (p.me ? " me" : "");
+      r.innerHTML = '<span class="label" style="width:18px">' + (i + 1) + '</span><i></i><span class="n"></span><span class="p"></span>';
+      r.querySelector("i").style.background = p.colour;
+      r.querySelector(".n").textContent = p.name;
+      r.querySelector(".p").textContent = fmtPts(p.score);
+      if (admin && !p.me) {
+        const x = document.createElement("button");
+        x.className = "kick"; x.textContent = "✕"; x.setAttribute("aria-label", "Quitar a " + p.name);
+        x.onclick = () => kick(p.name);
+        r.appendChild(x);
+      }
+      el.appendChild(r);
+    });
+  }
+
+  function ensureMap() {
+    if (map) return;
+    map = L.map("map", { zoomControl: false, attributionControl: true, maxBounds: [[39.38, -0.48], [39.56, -0.27]], minZoom: 12 }).setView(VALENCIA, 13);
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "© OpenStreetMap", maxZoom: 19 }).addTo(map);
+    map.on("click", (e) => {
+      if (!state || state.phase !== "ROUND" || (state.me && state.me.answered)) return;
+      guess = e.latlng;
+      const me = state.players.find((p) => p.me);
+      const icon = L.divIcon({ className: "", html: '<div class="pin" style="background:' + (me ? me.colour : "#fff") + '"></div>', iconSize: [20, 20], iconAnchor: [10, 10] });
+      if (pin) pin.setLatLng(guess); else pin = L.marker(guess, { icon }).addTo(map);
+      $("confirm").disabled = false; $("confirm").textContent = "Confirmar"; haptic();
+    });
+  }
+
+  $("confirm").onclick = async () => {
+    if (!guess) return;
+    $("confirm").disabled = true; $("confirm").textContent = "Enviado ✓ · esperando a los demás";
+    haptic();
+    await fetch("/api/geo/guess", { method: "POST", body: JSON.stringify({ id, lat: guess.lat, lon: guess.lng }) });
+    poll();
+  };
+
+  function render(s) {
+    if (!s.me) { show("join"); return; }
+    if (s.phase === "LOBBY" || s.phase === "LOADING") {
+      show("wait");
+      $("waitTitle").textContent = "Hola, " + s.me.name;
+      $("waitText").textContent = s.phase === "LOADING" ? "Buscando rincones de València…" : "Cuando estéis todos, pulsad OK en la tele para empezar.";
+      ranking($("waitList"), s.players);
+    } else if (s.phase === "ROUND") {
+      show("play"); ensureMap();
+      if (mapRound !== s.round) {
+        mapRound = s.round; guess = null;
+        if (pin) { pin.remove(); pin = null; }
+        map.setView(VALENCIA, 13);
+        setTimeout(() => map.invalidateSize(), 50);
+        $("confirm").disabled = true; $("confirm").textContent = "Toca el mapa para marcar";
+      }
+      if (s.me.answered) { $("confirm").disabled = true; $("confirm").textContent = "Enviado ✓ · esperando a los demás"; }
+      $("roundPill").textContent = "Ronda " + s.round + " / " + s.rounds;
+    } else if (s.phase === "REVEAL" || s.phase === "FINAL") {
+      show("result");
+      const mine = (s.guesses || []).find((g) => g.name === s.me.name);
+      const me = s.players.find((p) => p.me);
+      if (s.phase === "FINAL") {
+        const pos = s.players.findIndex((p) => p.me) + 1;
+        $("resultLabel").textContent = "Resultado final";
+        $("resultPoints").textContent = pos === 1 ? "¡Has ganado!" : pos + "º puesto";
+        $("resultDist").textContent = fmtPts(me ? me.score : 0) + " puntos en total";
+      } else {
+        $("resultLabel").textContent = "Ronda " + s.round + " de " + s.rounds;
+        $("resultPoints").textContent = mine ? "+" + fmtPts(mine.points) : "Sin respuesta";
+        $("resultDist").textContent = mine ? "A " + fmtDist(mine.meters) + " del sitio · mira la tele" : "Se acabó el tiempo";
+      }
+      ranking($("resultList"), s.players);
+    }
+  }
+
+  function tick() {
+    if (state && state.phase === "ROUND") {
+      const left = Math.max(0, Math.round((state.deadline - (Date.now() + skew)) / 1000));
+      $("clock").textContent = Math.floor(left / 60) + ":" + String(left % 60).padStart(2, "0");
+      $("clock").classList.toggle("late", left <= 15);
+    }
+  }
+
+  async function poll() {
+    try {
+      const s = await (await fetch("/api/geo/state" + (id ? "?id=" + encodeURIComponent(id) : ""), { cache: "no-store" })).json();
+      skew = s.now - Date.now(); state = s; render(s);
+    } catch (e) {}
+  }
+  poll(); setInterval(poll, 1000); setInterval(tick, 250);
+</script>
+</body>
+</html>

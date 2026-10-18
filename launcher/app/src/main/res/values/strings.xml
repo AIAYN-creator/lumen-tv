@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">Lumen</string>
+    <string name="screensaver_name">Lumen</string>
+    <string name="remote_name">Lumen · Mando</string>
+    <string name="radio_name">Radio</string>
+    <string name="ambient_name">Ambientes</string>
+    <string name="cameras_name">Cámaras</string>
+    <string name="geo_name">GeoGuesser València</string>
+    <string name="remote_description">Permite controlar la tele desde el móvil con el mando de Lumen.</string>
+</resources>

@@ -1,0 +1,487 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Lumen">
+<meta name="theme-color" content="#000000">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icon.png">
+<link rel="icon" href="/icon.png">
+<title>Lumen</title>
+<style>
+  @font-face { font-family: Inter; src: url(/inter.ttf) format("truetype"); font-weight: 100 900; font-display: swap; }
+  :root {
+    --bg: #000;
+    --text: #fff;
+    --text-2: rgba(255,255,255,.72);
+    --text-3: rgba(255,255,255,.46);
+    --line: rgba(255,255,255,.14);
+    --fill: rgba(255,255,255,.06);
+    --press: rgba(255,255,255,.16);
+    --ok: #30d158;
+    --bad: #ff453a;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); }
+  body {
+    font-family: Inter, -apple-system, system-ui, sans-serif;
+    font-feature-settings: "tnum";
+    -webkit-font-smoothing: antialiased;
+    overscroll-behavior: none;
+    user-select: none; -webkit-user-select: none;
+    padding: calc(env(safe-area-inset-top) + 16px) 20px calc(env(safe-area-inset-bottom) + 20px);
+    display: flex; flex-direction: column; gap: 22px;
+    max-width: 520px; margin: 0 auto;
+  }
+  .label { font-size: 11px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: var(--text-3); }
+  button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; touch-action: manipulation; }
+  svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+
+  header { display: flex; align-items: center; justify-content: space-between; }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-3); transition: background .3s; }
+  .dot.ok { background: var(--ok); } .dot.bad { background: var(--bad); }
+  .round {
+    width: 52px; height: 52px; border-radius: 50%; border: 1px solid var(--line);
+    display: grid; place-items: center; color: var(--text-2);
+    transition: background .15s, transform .15s, color .15s;
+  }
+  .round:active, .round.pressed { background: var(--text); color: #000; transform: scale(.94); }
+  .round.small { width: 40px; height: 40px; } .round.small svg { width: 19px; height: 19px; }
+
+  /* Now playing */
+  #media { display: none; gap: 14px; align-items: center; }
+  #media.on { display: flex; }
+  #art { width: 56px; height: 56px; border-radius: 6px; background: var(--fill) center / cover; flex: none; }
+  #media .meta { min-width: 0; flex: 1; }
+  #title { font-size: 17px; font-weight: 500; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 3px; }
+  #artist { font-size: 13px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bar { height: 2px; background: var(--line); margin-top: 8px; border-radius: 1px; overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--text); }
+
+  /* Touch surface */
+  #pad {
+    position: relative; flex: 1; min-height: 300px; border-radius: 28px;
+    border: 1px solid var(--line);
+    background:
+      radial-gradient(120% 80% at 20% 0%, rgba(60,52,137,.35), transparent 60%),
+      radial-gradient(90% 70% at 100% 100%, rgba(29,158,117,.22), transparent 60%),
+      #07070a;
+    touch-action: none; overflow: hidden;
+  }
+  #pad .hint { position: absolute; left: 0; right: 0; bottom: 22px; text-align: center; }
+  #pad .ring {
+    position: absolute; width: 64px; height: 64px; margin: -32px 0 0 -32px; border-radius: 50%;
+    border: 1px solid rgba(255,255,255,.5); opacity: 0; pointer-events: none;
+    transition: opacity .25s, transform .25s; transform: scale(.6);
+  }
+  #pad .ring.on { opacity: 1; transform: scale(1); }
+  #pad .chev { position: absolute; color: rgba(255,255,255,.18); }
+  #pad .chev svg { width: 20px; height: 20px; }
+  .c-up { top: 16px; left: 50%; transform: translateX(-50%); }
+  .c-down { bottom: 52px; left: 50%; transform: translateX(-50%) rotate(180deg); }
+  .c-left { left: 16px; top: 50%; transform: translateY(-50%) rotate(-90deg); }
+  .c-right { right: 16px; top: 50%; transform: translateY(-50%) rotate(90deg); }
+  #pad .chev.flash { color: #fff; transition: color 0s; }
+  #pad .chev { transition: color .35s; }
+
+  .controls { display: flex; justify-content: space-between; align-items: center; }
+  .volume {
+    display: flex; align-items: center; justify-content: space-between;
+    border: 1px solid var(--line); border-radius: 999px; height: 52px; padding: 0 6px;
+  }
+  .volume button { width: 64px; height: 44px; display: grid; place-items: center; color: var(--text-2); border-radius: 999px; transition: background .15s, color .15s; }
+  .volume button:active, .volume button.pressed { background: var(--text); color: #000; }
+
+  /* Apps */
+  .apps { display: flex; gap: 12px; overflow-x: auto; scrollbar-width: none; margin: 10px -20px 0; padding: 0 20px; scroll-padding: 0 20px; scroll-snap-type: x mandatory; }
+  .apps::-webkit-scrollbar { display: none; }
+  .app { flex: none; width: 128px; aspect-ratio: 16 / 9; border-radius: 12px; background: var(--fill) center / cover; scroll-snap-align: start; transition: transform .15s; }
+  .app:active { transform: scale(.95); }
+
+  /* Note / timer shortcuts */
+  .extras { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .extra {
+    border: 1px solid var(--line); border-radius: 18px; padding: 12px 14px; text-align: left;
+    display: flex; flex-direction: column; gap: 4px; min-height: 64px; transition: background .15s;
+  }
+  .extra:active { background: var(--press); }
+  .extra .val { font-size: 14px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* Bottom sheets */
+  .sheet {
+    position: fixed; left: 0; right: 0; bottom: 0; padding: 18px 20px calc(env(safe-area-inset-bottom) + 18px);
+    background: #0b0b0e; border-top: 1px solid var(--line); border-radius: 22px 22px 0 0;
+    transform: translateY(105%); transition: transform .28s cubic-bezier(.2,.8,.2,1); z-index: 2;
+  }
+  .sheet.on { transform: none; }
+  .sheet .head { display: flex; justify-content: space-between; align-items: center; }
+  .sheet .row { display: flex; gap: 10px; margin-top: 12px; }
+  .input, textarea.input {
+    flex: 1; height: 48px; border-radius: 14px; border: 1px solid var(--line); background: var(--fill);
+    color: var(--text); font: 16px Inter, system-ui; padding: 0 16px; outline: none; width: 100%;
+  }
+  textarea.input { height: 92px; padding: 12px 16px; resize: none; line-height: 1.4; }
+  .primary { height: 48px; padding: 0 18px; border-radius: 14px; background: var(--text); color: #000; font-weight: 600; }
+  .ghost { height: 40px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--line); color: var(--text-2); font-size: 14px; }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .chip { height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line); color: var(--text-2); font-size: 14px; }
+  .chip.on { background: var(--text); color: #000; border-color: var(--text); }
+  .sheet .msg { font-size: 12px; color: var(--text-3); margin-top: 10px; min-height: 15px; }
+  #noteList { margin-top: 10px; max-height: 32vh; overflow-y: auto; }
+  .noteItem { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .noteItem .txt { flex: 1; min-width: 0; }
+  .noteItem .who { font-size: 11px; color: var(--text-3); letter-spacing: .1em; text-transform: uppercase; font-weight: 600; }
+  .noteItem .body { font-size: 15px; margin-top: 3px; overflow-wrap: anywhere; }
+  .noteItem button { width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--line); color: var(--text-2); flex: none; }
+  #scrim { position: fixed; inset: 0; background: rgba(0,0,0,.5); opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 1; }
+  #scrim.on { opacity: 1; pointer-events: auto; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand"><span class="dot" id="dot"></span><span class="label">Lumen</span></div>
+  <div style="display:flex; gap:10px">
+    <button class="round small" id="kbd" aria-label="Teclado">
+      <svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 10h.01M11 10h.01M15 10h.01M7 14h10"/></svg>
+    </button>
+    <button class="round small" data-key="power" aria-label="Apagar">
+      <svg viewBox="0 0 24 24"><path d="M12 3v8"/><path d="M6.3 7.2a8 8 0 1 0 11.4 0"/></svg>
+    </button>
+  </div>
+</header>
+
+<section id="media">
+  <div id="art"></div>
+  <div class="meta">
+    <div class="label" id="app"></div>
+    <div id="title"></div>
+    <div id="artist"></div>
+    <div class="bar"><i id="progress"></i></div>
+  </div>
+</section>
+
+<div id="pad">
+  <span class="chev c-up"><svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg></span>
+  <span class="chev c-down"><svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg></span>
+  <span class="chev c-left"><svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg></span>
+  <span class="chev c-right"><svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg></span>
+  <div class="ring" id="ring"></div>
+  <div class="label hint">Desliza · Toca para aceptar</div>
+</div>
+
+<div class="controls">
+  <button class="round" data-key="back" aria-label="Atrás">
+    <svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
+  </button>
+  <button class="round" data-key="home" aria-label="Inicio">
+    <svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7"/><path d="M6 9.5V20h12V9.5"/></svg>
+  </button>
+  <button class="round" data-key="playpause" aria-label="Reproducir o pausar">
+    <svg viewBox="0 0 24 24"><path d="M5 5l8 7-8 7z"/><path d="M16 5v14M20 5v14"/></svg>
+  </button>
+  <button class="round" data-key="screensaver" aria-label="Salvapantallas">
+    <svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>
+  </button>
+</div>
+
+<!--
+  The TV's volume can't be reached from the Chromecast (HDMI is fixed at full volume and this
+  Philips ignores CEC volume), so this row skips tracks until the ESP32 infrared blaster exists.
+-->
+<div class="volume">
+  <button data-key="previous" aria-label="Pista anterior"><svg viewBox="0 0 24 24"><path d="M18 6l-8 6 8 6z"/><path d="M6 6v12"/></svg></button>
+  <span class="label">Pista</span>
+  <button data-key="next" aria-label="Pista siguiente"><svg viewBox="0 0 24 24"><path d="M6 6l8 6-8 6z"/><path d="M18 6v12"/></svg></button>
+</div>
+
+<div class="extras">
+  <button class="extra" id="openNote"><span class="label">Nota</span><span class="val" id="noteVal">Dejar una nota</span></button>
+  <button class="extra" id="openSleep"><span class="label">Temporizador</span><span class="val" id="sleepVal">Apagar la tele en…</span></button>
+  <a class="extra" href="/geo" style="grid-column:1/3;text-decoration:none;color:inherit"><span class="label">Juego</span><span class="val">GeoGuesser València · unirme a la partida</span></a>
+</div>
+
+<section>
+  <div class="label">Apps</div>
+  <div class="apps" id="apps"></div>
+</section>
+
+<div id="scrim"></div>
+
+<div class="sheet" id="kbdSheet">
+  <div class="label">Escribir en la tele</div>
+  <div class="row">
+    <input class="input" id="field" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Busca algo…">
+    <button class="primary" id="send">Buscar</button>
+  </div>
+  <div class="msg" id="msg"></div>
+</div>
+
+<div class="sheet" id="noteSheet">
+  <div class="head"><span class="label">Notas en la tele</span><button class="ghost" id="clearNote">Borrar todas</button></div>
+  <div id="noteList"></div>
+  <div class="row"><textarea class="input" id="noteText" maxlength="140" placeholder="Nueva nota: hay lentejas en la nevera"></textarea></div>
+  <div class="row"><input class="input" id="noteAuthor" maxlength="24" placeholder="Firma (tu nombre)"></div>
+  <div class="chips" id="noteHours">
+    <button class="chip" data-h="1">1 hora</button>
+    <button class="chip" data-h="3">3 horas</button>
+    <button class="chip on" data-h="today">Hasta esta noche</button>
+    <button class="chip" data-h="24">1 día</button>
+    <button class="chip" data-h="72">3 días</button>
+  </div>
+  <div class="row"><button class="primary" id="postNote" style="flex:1">Publicar en la tele</button></div>
+</div>
+
+<div class="sheet" id="sleepSheet">
+  <div class="head"><span class="label">Apagar la tele en</span><button class="ghost" id="cancelSleep">Cancelar</button></div>
+  <div class="chips" id="sleepChips">
+    <button class="chip" data-m="15">15 min</button>
+    <button class="chip" data-m="30">30 min</button>
+    <button class="chip" data-m="45">45 min</button>
+    <button class="chip" data-m="60">1 h</button>
+    <button class="chip" data-m="90">1 h 30</button>
+    <button class="chip" data-m="120">2 h</button>
+  </div>
+  <div class="row">
+    <input class="input" id="sleepMin" type="number" inputmode="numeric" min="1" max="720" placeholder="Minutos (p. ej. 37)">
+    <button class="primary" id="startSleep">Iniciar</button>
+  </div>
+  <div class="msg" id="sleepMsg"></div>
+</div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const dot = $("dot");
+
+  // Requests go out one after another so fast swipes arrive in order.
+  let chain = Promise.resolve();
+  function post(url, body) {
+    const p = chain.then(() => fetch(url, { method: "POST", body, keepalive: true }));
+    chain = p.then(() => {}, () => {});
+    p.then((r) => setOnline(r.status < 500), () => setOnline(false));
+    return p;
+  }
+  function setOnline(ok) { dot.className = "dot " + (ok ? "ok" : "bad"); }
+  function haptic() { if (navigator.vibrate) navigator.vibrate(8); }
+
+  // Keys travel over one WebSocket kept open for the whole session: no handshake per tap.
+  // It reconnects by itself (iOS closes it when the app goes to the background), and while it's
+  // down keys fall back to plain HTTP so nothing is lost.
+  let ws = null;
+  function connect() {
+    if (ws && ws.readyState <= 1) return;
+    ws = new WebSocket("ws://" + location.host + "/ws");
+    ws.onopen = () => setOnline(true);
+    ws.onclose = () => { ws = null; if (!document.hidden) setTimeout(connect, 600); };
+    ws.onerror = () => { setOnline(false); try { ws.close(); } catch (e) {} };
+  }
+  connect();
+  setInterval(() => { if (ws && ws.readyState === 1) ws.send("ping"); }, 20000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) connect(); });
+
+  function key(k) {
+    haptic();
+    if (ws && ws.readyState === 1) { ws.send("k:" + k); return Promise.resolve(); }
+    return post("/api/key?k=" + k);
+  }
+
+  // ---------------------------------------------------------------- buttons (with hold-to-repeat)
+  document.querySelectorAll("[data-key]").forEach((el) => {
+    let timer, interval;
+    const stop = () => { clearTimeout(timer); clearInterval(interval); el.classList.remove("pressed"); };
+    el.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      el.classList.add("pressed");
+      key(el.dataset.key);
+      if (el.hasAttribute("data-repeat")) {
+        timer = setTimeout(() => { interval = setInterval(() => key(el.dataset.key), 140); }, 380);
+      }
+    });
+    ["pointerup", "pointerleave", "pointercancel"].forEach((t) => el.addEventListener(t, stop));
+  });
+
+  // ---------------------------------------------------------------- touch surface
+  const pad = $("pad"), ring = $("ring");
+  const STEP = 42;
+  let start = null;
+  function flash(dir) {
+    const c = pad.querySelector(".c-" + dir);
+    c.classList.add("flash"); setTimeout(() => c.classList.remove("flash"), 60);
+  }
+  pad.addEventListener("pointerdown", (e) => {
+    pad.setPointerCapture(e.pointerId);
+    const r = pad.getBoundingClientRect();
+    start = { x: e.clientX, y: e.clientY, t: Date.now(), moved: false };
+    ring.style.left = (e.clientX - r.left) + "px"; ring.style.top = (e.clientY - r.top) + "px";
+    ring.classList.add("on");
+  });
+  pad.addEventListener("pointermove", (e) => {
+    if (!start) return;
+    const r = pad.getBoundingClientRect();
+    ring.style.left = (e.clientX - r.left) + "px"; ring.style.top = (e.clientY - r.top) + "px";
+    const dx = e.clientX - start.x, dy = e.clientY - start.y;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < STEP) return;
+    const dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : (dy > 0 ? "down" : "up");
+    key(dir); flash(dir);
+    // Re-anchor, so keeping the finger moving keeps stepping through the grid.
+    start.x = e.clientX; start.y = e.clientY; start.moved = true;
+  });
+  const end = () => {
+    if (start && !start.moved && Date.now() - start.t < 450) key("ok");
+    start = null; ring.classList.remove("on");
+  };
+  pad.addEventListener("pointerup", end);
+  pad.addEventListener("pointercancel", () => { start = null; ring.classList.remove("on"); });
+
+  // ---------------------------------------------------------------- apps
+  fetch("/api/apps").then((r) => r.json()).then((apps) => {
+    setOnline(true);
+    $("apps").innerHTML = "";
+    apps.forEach((a) => {
+      const b = document.createElement("button");
+      b.className = "app";
+      b.setAttribute("aria-label", a.label);
+      b.style.backgroundImage = "url('/api/banner?pkg=" + encodeURIComponent(a.pkg) + "')";
+      b.onclick = () => { haptic(); post("/api/launch?pkg=" + encodeURIComponent(a.pkg)); };
+      $("apps").appendChild(b);
+    });
+  }, () => setOnline(false));
+
+  // ---------------------------------------------------------------- now playing
+  let media = null, mediaAt = 0;
+  async function poll() {
+    if (document.hidden) return;
+    try {
+      const s = await (await fetch("/api/state", { cache: "no-store" })).json();
+      setOnline(true);
+      notes = s.notes || []; sleepAt = s.sleepAt || null;
+      if (s.now) clockSkew = s.now - Date.now();
+      renderExtras();
+      media = s.media || null; mediaAt = Date.now();
+      $("media").classList.toggle("on", !!media);
+      if (media) {
+        $("app").textContent = (media.playing ? "Sonando · " : "En pausa · ") + media.app;
+        $("title").textContent = media.title;
+        $("artist").textContent = media.artist;
+        $("art").style.backgroundImage = media.art ? "url('" + media.art + "')" : "";
+      }
+    } catch (e) { setOnline(false); }
+  }
+  function tick() {
+    if (media && media.duration > 0) {
+      const pos = media.position + (media.playing ? Date.now() - mediaAt : 0);
+      $("progress").style.width = Math.min(100, pos / media.duration * 100) + "%";
+    }
+    requestAnimationFrame(tick);
+  }
+  poll(); setInterval(poll, 2500); tick();
+  document.addEventListener("visibilitychange", poll);
+
+  // ---------------------------------------------------------------- sheets
+  const scrim = $("scrim");
+  function openSheet(id) {
+    document.querySelectorAll(".sheet").forEach((s) => s.classList.toggle("on", s.id === id));
+    scrim.classList.toggle("on", !!id);
+    if (!id) document.activeElement && document.activeElement.blur();
+  }
+  scrim.onclick = () => openSheet(null);
+
+  // ---------------------------------------------------------------- keyboard
+  const field = $("field"), msg = $("msg");
+  let typing;
+  $("kbd").onclick = () => {
+    haptic();
+    field.value = ""; msg.textContent = "";
+    openSheet("kbdSheet"); field.focus();
+  };
+  field.addEventListener("input", () => {
+    clearTimeout(typing);
+    typing = setTimeout(async () => {
+      const r = await post("/api/text", field.value).catch(() => null);
+      msg.textContent = r && r.status === 409 ? "Selecciona primero un campo de texto en la tele." : "";
+    }, 200);
+  });
+  const submit = () => { haptic(); post("/api/submit"); openSheet(null); };
+  $("send").onclick = submit;
+  field.addEventListener("keydown", (e) => { if (e.key === "Enter") submit(); });
+
+  // ---------------------------------------------------------------- note
+  let notes = [], sleepAt = null, clockSkew = 0;
+  const author = $("noteAuthor");
+  try { author.value = localStorage.getItem("lumen.author") || ""; } catch (e) {}
+  let noteHours = "today";
+  document.querySelectorAll("#noteHours .chip").forEach((c) => c.onclick = () => {
+    haptic(); noteHours = c.dataset.h;
+    document.querySelectorAll("#noteHours .chip").forEach((x) => x.classList.toggle("on", x === c));
+  });
+  function renderNoteList() {
+    const list = $("noteList");
+    list.innerHTML = "";
+    notes.forEach((n) => {
+      const row = document.createElement("div");
+      row.className = "noteItem";
+      const txt = document.createElement("div"); txt.className = "txt";
+      const who = document.createElement("div"); who.className = "who";
+      const until = new Date(n.expiresAt - clockSkew);
+      who.textContent = (n.author ? n.author + " · " : "") + "hasta " + until.toTimeString().slice(0, 5);
+      const body = document.createElement("div"); body.className = "body"; body.textContent = n.text;
+      txt.append(who, body);
+      const del = document.createElement("button"); del.setAttribute("aria-label", "Borrar nota"); del.textContent = "✕";
+      del.onclick = async () => { haptic(); notes = await (await post("/api/note?delete=" + encodeURIComponent(n.id))).json(); renderNoteList(); renderExtras(); };
+      row.append(txt, del);
+      list.appendChild(row);
+    });
+    $("clearNote").style.visibility = notes.length ? "visible" : "hidden";
+  }
+  $("openNote").onclick = () => { haptic(); $("noteText").value = ""; renderNoteList(); openSheet("noteSheet"); };
+  function hoursValue() {
+    if (noteHours !== "today") return Number(noteHours);
+    const end = new Date(); end.setHours(23, 59, 0, 0);
+    return Math.max(0.25, (end - Date.now()) / 3600000);
+  }
+  $("postNote").onclick = async () => {
+    const text = $("noteText").value.trim();
+    if (!text) { $("noteText").focus(); return; }
+    haptic();
+    try { localStorage.setItem("lumen.author", author.value.trim()); } catch (e) {}
+    await post("/api/note", JSON.stringify({ text, author: author.value.trim(), hours: hoursValue() }));
+    openSheet(null); poll();
+  };
+  $("clearNote").onclick = async () => { haptic(); await post("/api/note?clear=1"); openSheet(null); poll(); };
+
+  // ---------------------------------------------------------------- sleep timer
+  async function startSleep(min) {
+    haptic();
+    await post("/api/sleep?min=" + min);
+    openSheet(null); setTimeout(poll, 300);
+  }
+  document.querySelectorAll("#sleepChips .chip").forEach((c) => c.onclick = () => startSleep(c.dataset.m));
+  $("startSleep").onclick = () => {
+    const m = parseInt($("sleepMin").value, 10);
+    if (!(m >= 1 && m <= 720)) { $("sleepMsg").textContent = "Escribe entre 1 y 720 minutos."; return; }
+    $("sleepMsg").textContent = ""; startSleep(m);
+  };
+  $("cancelSleep").onclick = () => startSleep(0);
+  $("openSleep").onclick = () => { haptic(); $("sleepMin").value = ""; $("sleepMsg").textContent = ""; openSheet("sleepSheet"); };
+
+  function renderExtras() {
+    $("noteVal").textContent = notes.length === 0 ? "Dejar una nota"
+      : notes.length === 1 ? "“" + notes[0].text + "”"
+      : notes.length + " notas · “" + notes[0].text + "”";
+    if (sleepAt) {
+      const left = Math.max(0, Math.round((sleepAt - (Date.now() + clockSkew)) / 60000));
+      const at = new Date(sleepAt - clockSkew);
+      $("sleepVal").textContent = "Se apaga en " + left + " min · " + at.toTimeString().slice(0, 5);
+    } else {
+      $("sleepVal").textContent = "Apagar la tele en…";
+    }
+  }
+  setInterval(renderExtras, 10000);
+</script>
+</body>
+</html>

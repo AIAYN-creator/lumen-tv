@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <size android:width="320dp" android:height="180dp" />
+            <gradient android:angle="315" android:startColor="#F08A00" android:endColor="#4A1E00" />
+        </shape>
+    </item>
+    <item android:drawable="@drawable/ic_geo" android:gravity="center" android:width="72dp" android:height="72dp" />
+</layer-list>
