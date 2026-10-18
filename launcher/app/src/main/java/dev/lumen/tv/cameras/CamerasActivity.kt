@@ -200,12 +200,16 @@ private fun LiveView(camera: Camera) {
                 webViewClient = object : WebViewClient() {
                     override fun onPageFinished(view: WebView, url: String?) {
                         view.evaluateJavascript(FULLSCREEN_VIDEO_CSS, null)
-                        // One health check in the log: is the video actually advancing?
+                        view.evaluateJavascript(PLAYBACK_WATCHDOG, null)
+                        // Health check in the log: is the video advancing, and how often did the watchdog step in?
                         view.postDelayed({
-                            view.evaluateJavascript(
-                                "(function(){var v=document.getElementById('test-video');return v?('t='+v.currentTime.toFixed(1)+' ready='+v.readyState+' '+v.videoWidth+'x'+v.videoHeight):'no video'})()"
+                            // OK may already have moved on to the next camera.
+                            if (view.isAttachedToWindow) view.evaluateJavascript(
+                                "(function(){var v=document.getElementById('test-video');if(!v)return 'no video';var b=v.buffered;" +
+                                    "return 't='+v.currentTime.toFixed(1)+' buffered='+(b.length?b.end(b.length-1).toFixed(1):'-')+' paused='+v.paused+" +
+                                    "' ready='+v.readyState+' rate='+v.playbackRate.toFixed(2)+' rescues='+(window.lumenRescues||0)})()"
                             ) { android.util.Log.i("Lumen", "Camera ${camera.id} video: $it") }
-                        }, 8_000)
+                        }, 12_000)
                     }
                 }
                 loadUrl(camera.liveUrl)
@@ -226,6 +230,45 @@ private const val FULLSCREEN_VIDEO_CSS = """
     'video::-webkit-media-controls{display:none!important}';
   document.head.appendChild(s);
   var v = document.getElementById('test-video'); if (v) v.controls = false;
+})();
+"""
+
+/**
+ * The city's player sits 0.04 s behind the live edge, too tight for this hardware: the video
+ * runs dry within a second and Chromium releases the decoder, leaving a frozen frame. This
+ * keeps more buffer, follows the stream's real pace (some cameras deliver ~0.75 s of video
+ * per second, so the clock would outrun the data) and restarts playback if it stops with data
+ * waiting (the player only calls play() once).
+ */
+private const val PLAYBACK_WATCHDOG = """
+(function () {
+  var v = document.getElementById('test-video');
+  if (!v || window.lumenWatchdog) return;
+  window.lumenWatchdog = true;
+  window.lumenRescues = 0;
+  try { if (window.stream && stream.jitter < 0.5) stream.jitter = 0.5; } catch (e) {}
+  var last = -1, stuck = 0;
+  setInterval(function () {
+    var b = v.buffered;
+    if (!b.length) return;
+    var end = b.end(b.length - 1), lag = end - v.currentTime;
+    // Hold about 0.6 s behind what has arrived: slow down when short, catch up when long.
+    var rate = Math.max(0.5, Math.min(1.3, 1 + (lag - 0.6) * 0.8));
+    if (Math.abs(rate - v.playbackRate) > 0.03) v.playbackRate = rate;
+    // Data waiting but no progress for a second: restart it.
+    var moving = v.currentTime !== last;
+    last = v.currentTime;
+    if (lag > 0.2 && (v.paused || !moving)) {
+      if (++stuck < 2) return;
+      stuck = 0;
+      window.lumenRescues++;
+      if (lag > 2) v.currentTime = end - 0.6;
+      var p = v.play();
+      if (p) p.catch(function () {});
+    } else {
+      stuck = 0;
+    }
+  }, 500);
 })();
 """
 
