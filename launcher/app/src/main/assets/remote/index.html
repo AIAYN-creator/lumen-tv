@@ -51,6 +51,8 @@
     transition: background .15s, transform .15s, color .15s;
   }
   .round:active, .round.pressed { background: var(--text); color: #000; transform: scale(.94); }
+  /* Night mode on: a soft fill, like the button on the TV. */
+  .round.on { background: rgba(255,255,255,.18); color: var(--text); }
   .round.small { width: 40px; height: 40px; } .round.small svg { width: 19px; height: 19px; }
 
   /* Now playing */
@@ -186,6 +188,9 @@
     <svg viewBox="0 0 24 24"><path d="M5 5l8 7-8 7z"/><path d="M16 5v14M20 5v14"/></svg>
   </button>
   <button class="round" data-key="screensaver" aria-label="Salvapantallas">
+    <svg viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="13" rx="1.8"/><path d="M12 7.5v7M6.5 11h11M9 20.5h6"/></svg>
+  </button>
+  <button class="round" data-key="night" id="night" aria-label="Modo noche">
     <svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>
   </button>
 </div>
@@ -360,6 +365,7 @@
       const s = await (await fetch("/api/state", { cache: "no-store" })).json();
       setOnline(true);
       notes = s.notes || []; sleepAt = s.sleepAt || null;
+      setNight(!!s.night);
       if (s.now) clockSkew = s.now - Date.now();
       renderExtras();
       media = s.media || null; mediaAt = Date.now();
@@ -372,6 +378,12 @@
       }
     } catch (e) { setOnline(false); }
   }
+  function setNight(on) {
+    $("night").classList.toggle("on", on);
+    $("night").setAttribute("aria-label", on ? "Quitar el modo noche" : "Modo noche");
+  }
+  // Flip the button at once; the next poll confirms what the TV did.
+  $("night").addEventListener("pointerup", () => setNight(!$("night").classList.contains("on")));
   function tick() {
     if (media && media.duration > 0) {
       const pos = media.position + (media.playing ? Date.now() - mediaAt : 0);

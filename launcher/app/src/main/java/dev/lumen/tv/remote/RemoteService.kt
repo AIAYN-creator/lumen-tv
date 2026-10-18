@@ -264,6 +264,10 @@ class RemoteService : AccessibilityService() {
                     startActivity(Intent(this, ScreensaverActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK).putExtra(ScreensaverActivity.EXTRA_NIGHT, true))
                 }
             }
+            // Same as the moon button on the home screen: turning night on also shows it.
+            "night" -> if (HouseState.toggleNight(this)) main.post {
+                runCatching { startActivity(Intent(this, ScreensaverActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+            }
             "screensaver" -> main.post {
                 runCatching { startActivity(Intent(this, ScreensaverActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
             }
@@ -352,6 +356,7 @@ class RemoteService : AccessibilityService() {
             .put("notes", notesJson())
             .put("sleepAt", HouseState.sleepAt.value ?: JSONObject.NULL)
             .put("now", System.currentTimeMillis())
+            .put("night", HouseState.isNight(java.time.LocalDateTime.now()))
         if (media != null) {
             json.put(
                 "media",
@@ -413,7 +418,7 @@ class RemoteService : AccessibilityService() {
         const val PORT = 8765
         private val KEYS = setOf(
             "up", "down", "left", "right", "ok", "back", "home", "power", "nightpreview",
-            "playpause", "next", "previous", "volup", "voldown", "mute", "screensaver",
+            "playpause", "next", "previous", "volup", "voldown", "mute", "screensaver", "night",
         )
     }
 }

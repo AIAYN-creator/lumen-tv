@@ -158,9 +158,15 @@ fun rememberSleepMinutes(): Int? {
     return sleepAt?.let { ((it - now + 59_999) / 60_000).toInt().coerceAtLeast(0) }
 }
 
-fun LocalDateTime.isNight(): Boolean =
-    if (Config.NIGHT_START <= Config.NIGHT_END) hour in Config.NIGHT_START until Config.NIGHT_END
-    else hour >= Config.NIGHT_START || hour < Config.NIGHT_END
+/** Whether the screensaver is in night mode: the schedule, or the switch on the home screen and phone. */
+@Composable
+fun rememberNight(): Boolean {
+    val context = LocalContext.current
+    remember { HouseState.load(context) }
+    val override by HouseState.night.collectAsState()
+    val now = rememberNow()
+    return HouseState.isNight(now, override)
+}
 
 /** Refreshed every minute; fixtures are cached inside the repository, so this mostly polls live scores. */
 @Composable

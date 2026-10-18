@@ -70,7 +70,7 @@ import dev.lumen.tv.ui.rememberNow
 import dev.lumen.tv.ui.rememberSports
 import dev.lumen.tv.ui.rememberWeather
 import dev.lumen.tv.ui.timeText
-import dev.lumen.tv.ui.isNight
+import dev.lumen.tv.ui.rememberNight
 import dev.lumen.tv.ui.rememberNotes
 import dev.lumen.tv.ui.rememberSleepMinutes
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -84,8 +84,8 @@ import androidx.compose.foundation.layout.widthIn
  */
 @Composable
 fun ScreensaverScreen(forceNight: Boolean = false) {
-    val now = rememberNow()
-    Crossfade(targetState = forceNight || now.isNight(), animationSpec = tween(2_000), label = "night") { night ->
+    val night = rememberNight()
+    Crossfade(targetState = forceNight || night, animationSpec = tween(2_000), label = "night") { night ->
         if (night) NightScreen() else DayScreen()
     }
 }

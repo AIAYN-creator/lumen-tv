@@ -18,7 +18,7 @@ Mete fotos (`.jpg`, `.png` o `.webp`) en la carpeta `wallpapers` del proyecto y 
 
 - **Tiempo:** Open-Meteo.
 - **Avisos de la AEMET:** el feed público de MeteoAlarm, zona "Litoral norte de Valencia".
-- **Partidos:** el Valencia CF y el Levante salen del calendario de LaLiga de ESPN (resultados, próximo partido y directo). TheSportsDB se saltaba partidos, como el Deportivo 1–1 Levante. El basket sale de TheSportsDB, con el directo de la Euroliga desde ESPN.
+- **Partidos:** el Valencia CF y el Levante salen del calendario de LaLiga de ESPN (resultados, próximo partido y directo). TheSportsDB se saltaba partidos, como el Deportivo 1–1 Levante. El basket sale de TheSportsDB, con el directo de la Euroliga desde ESPN. Si se cae la red, cada equipo sigue mostrando su último resultado bueno.
 - **Metro:** el mismo servicio que usa el panel de "próximos trenes" de metrovalencia.es. No es una API oficial, así que puede dejar de funcionar si cambian la web. El sitio no envía su certificado intermedio de Sectigo, así que la app lo incluye (`res/raw`) y solo lo usa para ese dominio.
 
 El puerto 5555 dura hasta que se reinicia el Chromecast. Después de un reinicio, mira el puerto nuevo en Opciones para desarrolladores → Depuración inalámbrica, conecta a ese puerto y ejecuta `adb tcpip 5555`.
@@ -57,7 +57,7 @@ Abre **http://192.168.0.18:8765** en el móvil (iPhone o Android, con el móvil 
 
 Qué hace:
 - Superficie táctil: desliza para moverte y toca para aceptar.
-- Botones de atrás, inicio, play/pausa, salvapantallas y pista anterior/siguiente.
+- Botones de atrás, inicio, play/pausa, salvapantallas, modo noche y pista anterior/siguiente.
 - El volumen **no** se puede controlar desde aquí. El Chromecast saca el HDMI siempre a volumen máximo, y esta Philips ignora el volumen por HDMI-CEC (lo probé: lo recibe y no hace nada). Para controlar el volumen hará falta el emisor de infrarrojos con ESP32 (fase 2).
 - Lanzar apps, ver qué suena y escribir en la tele con el teclado del móvil.
 
@@ -70,7 +70,7 @@ Si el router le cambia la IP al Chromecast, cambia la dirección del mando. Conv
 - **Nota:** se escribe desde el mando del móvil, con firma y duración. Sale en el centro de la cabecera del salvapantallas y en el modo noche.
 - **Temporizador:** minutos libres o atajos desde el móvil. Muestra la cuenta atrás en el salvapantallas, el modo noche y el móvil. En el último minuto aparece un aviso encima de cualquier app: cualquier botón del mando lo cancela y, si nadie lo toca, el Chromecast se suspende y apaga la tele por HDMI-CEC.
 - **Alertas de partido:** goles (a favor y en contra) y rojas del Valencia y el Levante, encima de cualquier app. Salen de los eventos en directo de ESPN (LaLiga). Para ver cómo quedan: `POST /api/demo-alert`.
-- **Modo noche:** de `NIGHT_START` a `NIGHT_END` (`Config.kt`, por defecto de 00:00 a 07:00). Para previsualizarlo: `POST /api/key?k=nightpreview`.
+- **Modo noche:** de `NIGHT_START` a `NIGHT_END` (`Config.kt`, por defecto de 00:00 a 07:00). También se pone y se quita a mano con el botón de la luna, en el inicio y en el mando del móvil. Al ponerlo se abre el salvapantallas en modo noche. El cambio dura hasta el siguiente cambio del horario: si lo pones a las 23:00, sigue hasta las 07:00; si lo quitas a las 02:00, vuelve a la noche siguiente. Para previsualizarlo sin cambiar nada: `POST /api/key?k=nightpreview`.
 
 ## Apps propias
 

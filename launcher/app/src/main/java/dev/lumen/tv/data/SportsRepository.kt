@@ -14,6 +14,7 @@ import java.time.Duration
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneOffset
+import java.util.concurrent.ConcurrentHashMap
 
 data class Team(
     val name: String,
@@ -69,7 +70,21 @@ object SportsRepository {
     suspend fun fetch(teams: List<Team>): List<TeamCard> = memo.get(teams) { download(teams) }.orEmpty()
 
     private suspend fun download(teams: List<Team>): List<TeamCard> = coroutineScope {
-        teams.map { team -> async { card(team) } }.awaitAll()
+        teams.map { team -> async { cardOrLastGood(team) } }.awaitAll()
+    }
+
+    /** Last card that had something to show, per team. */
+    private val lastGood = ConcurrentHashMap<Team, TeamCard>()
+
+    /**
+     * A Wi-Fi blip makes every source fail at once, which leaves an empty card. Keep showing the
+     * last good one instead of blanking the results until the next refresh.
+     */
+    private suspend fun cardOrLastGood(team: Team): TeamCard {
+        val card = card(team)
+        if (card.main == null && card.next == null) return lastGood[team] ?: card
+        lastGood[team] = card
+        return card
     }
 
     /** True while any card is (possibly) live, so callers can refresh more often. */
@@ -78,7 +93,11 @@ object SportsRepository {
     private suspend fun card(team: Team): TeamCard {
         // Football: ESPN's own LaLiga schedule is complete and current (TheSportsDB has been
         // seen skipping games, e.g. Levante's 1–1 at Deportivo). Basketball stays on TheSportsDB.
-        if (team.espnPath?.startsWith("soccer") == true) espnCard(team)?.let { return it }
+        // If ESPN is unreachable, the last ESPN card beats TheSportsDB's incomplete list.
+        if (team.espnPath?.startsWith("soccer") == true) {
+            espnCard(team)?.let { return it }
+            lastGood[team]?.let { return it }
+        }
 
         val now = Instant.now()
         val (rawLast, rawNext) = fixtures(team, now)

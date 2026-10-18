@@ -80,6 +80,7 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import dev.lumen.tv.media.rememberNowPlaying
+import dev.lumen.tv.state.HouseState
 
 private val SIDE_PADDING = 48.dp
 
@@ -133,6 +134,7 @@ private fun Header(context: Context, onShowQr: () -> Unit, modifier: Modifier = 
     val media = rememberNowPlaying()
     val sports = rememberSports()
     val sleepMinutes = rememberSleepMinutes()
+    val night = rememberNight()
 
     Row(modifier.fillMaxWidth().height(HEADER_HEIGHT)) {
         Hero(heroItems(notes, media, sports), weather, now, Modifier.weight(1f).padding(top = 4.dp, end = 40.dp))
@@ -143,8 +145,12 @@ private fun Header(context: Context, onShowQr: () -> Unit, modifier: Modifier = 
             verticalArrangement = Arrangement.SpaceBetween,
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                RoundButton(MoonIcon, "Salvapantallas") { context.openScreensaver() }
-                RoundButton(PhoneIcon, "Mando en el móvil", onShowQr)
+                RoundButton(PanelIcon, "Salvapantallas") { context.openScreensaver() }
+                // Turning night on opens the screensaver straight away (bedtime); off just switches.
+                RoundButton(MoonIcon, if (night) "Quitar el modo noche" else "Modo noche", active = night) {
+                    if (HouseState.toggleNight(context)) context.openScreensaver()
+                }
+                RoundButton(PhoneIcon, "Mando en el móvil", onClick = onShowQr)
                 RoundButton(Icons.Filled.AccountCircle, "Cuentas y perfiles") { context.openAccounts() }
                 RoundButton(Icons.Filled.Settings, "Ajustes") { context.openSettings() }
             }
@@ -189,7 +195,7 @@ private val PhoneIcon: ImageVector = ImageVector.Builder("Phone", 24.dp, 24.dp, 
 
 /** Small circular icon button, Apple TV control-centre style: outlined at rest, solid white on focus. */
 @Composable
-private fun RoundButton(icon: ImageVector, label: String, onClick: () -> Unit) {
+private fun RoundButton(icon: ImageVector, label: String, active: Boolean = false, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
         modifier = Modifier.size(36.dp),
@@ -197,8 +203,9 @@ private fun RoundButton(icon: ImageVector, label: String, onClick: () -> Unit) {
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.15f),
         border = ClickableSurfaceDefaults.border(border = Border(BorderStroke(1.dp, Tone.hairline), shape = CircleShape)),
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = Color.Transparent,
-            contentColor = Tone.secondary,
+            // Switched on (night mode): a soft fill, so it reads as on without stealing focus.
+            containerColor = if (active) Color.White.copy(alpha = 0.22f) else Color.Transparent,
+            contentColor = if (active) Color.White else Tone.secondary,
             focusedContainerColor = Color.White,
             focusedContentColor = Color.Black,
         ),
@@ -315,7 +322,17 @@ private fun Context.openScreensaver() {
     runCatching { startActivity(Intent(this, ScreensaverActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
 }
 
-/** Material "dark mode" crescent; not part of the core icon set. */
+/** The screensaver is a dashboard: a screen with a small grid, drawn like the phone icon. */
+private val PanelIcon: ImageVector = ImageVector.Builder("Panel", 24.dp, 24.dp, 24f, 24f)
+    .addPath(
+        addPathNodes("M4.8,4.5h14.4a1.8,1.8 0 0 1 1.8,1.8v9.4a1.8,1.8 0 0 1 -1.8,1.8h-14.4a1.8,1.8 0 0 1 -1.8,-1.8v-9.4a1.8,1.8 0 0 1 1.8,-1.8zM12,7.5v7M6.5,11h11M9,20.5h6"),
+        stroke = SolidColor(Color.Black),
+        strokeLineWidth = 1.6f,
+        strokeLineCap = androidx.compose.ui.graphics.StrokeCap.Round,
+    )
+    .build()
+
+/** Material "dark mode" crescent, for night mode; not part of the core icon set. */
 private val MoonIcon: ImageVector = ImageVector.Builder("Moon", 24.dp, 24.dp, 24f, 24f)
     .addPath(
         addPathNodes(
