@@ -51,8 +51,6 @@
     transition: background .15s, transform .15s, color .15s;
   }
   .round:active, .round.pressed { background: var(--text); color: #000; transform: scale(.94); }
-  /* Night mode on: a soft fill, like the button on the TV. */
-  .round.on { background: rgba(255,255,255,.18); color: var(--text); }
   .round.small { width: 40px; height: 40px; } .round.small svg { width: 19px; height: 19px; }
 
   /* Now playing */
@@ -196,7 +194,7 @@
   <button class="round" data-key="screensaver" aria-label="Salvapantallas">
     <svg viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="13" rx="1.8"/><path d="M12 7.5v7M6.5 11h11M9 20.5h6"/></svg>
   </button>
-  <button class="round" data-key="night" id="night" aria-label="Modo noche">
+  <button class="round" data-key="night" id="night" aria-label="Modo oscuro">
     <svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>
   </button>
 </div>
@@ -415,9 +413,13 @@
       }
     } catch (e) { setOnline(false); }
   }
+  var MOON = '<svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>';
+  var SUN = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.4" fill="currentColor" stroke="none"/>' +
+    '<path d="M12 2.4v2.2M12 19.4v2.2M4.2 4.2l1.6 1.6M18.2 18.2l1.6 1.6M2.4 12h2.2M19.4 12h2.2M4.2 19.8l1.6-1.6M18.2 5.8l1.6-1.6"/></svg>';
+
   function setNight(on) {
-    $("night").classList.toggle("on", on);
-    $("night").setAttribute("aria-label", on ? "Quitar el modo noche" : "Modo noche");
+    $("night").innerHTML = on ? SUN : MOON;
+    $("night").setAttribute("aria-label", on ? "Modo claro" : "Modo oscuro");
   }
   // Flip the button at once; the next poll confirms what the TV did.
   $("night").addEventListener("pointerup", () => setNight(!$("night").classList.contains("on")));

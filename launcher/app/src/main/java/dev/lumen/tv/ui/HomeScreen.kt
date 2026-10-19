@@ -170,9 +170,10 @@ private fun Header(context: Context, dark: Boolean, onShowQr: () -> Unit, modifi
                 RoundButton(PanelIcon, "Salvapantallas") { context.openScreensaver() }
                 // Switches the look and leaves you here. The screensaver has its own button;
                 // before the home had a dark mode, turning this on jumped straight to it.
-                RoundButton(MoonIcon, if (dark) "Quitar el modo oscuro" else "Modo oscuro", active = dark) {
-                    HouseState.toggleNight(context)
-                }
+                RoundButton(
+                    if (dark) SunIcon else MoonIcon,
+                    if (dark) "Modo claro" else "Modo oscuro",
+                ) { HouseState.toggleNight(context) }
                 RoundButton(PhoneIcon, "Mando en el móvil", onClick = onShowQr)
                 RoundButton(Icons.Filled.AccountCircle, "Cuentas y perfiles") { context.openAccounts() }
                 RoundButton(Icons.Filled.Settings, "Ajustes") { context.openSettings() }
@@ -351,6 +352,23 @@ private val PanelIcon: ImageVector = ImageVector.Builder("Panel", 24.dp, 24.dp, 
         addPathNodes("M4.8,4.5h14.4a1.8,1.8 0 0 1 1.8,1.8v9.4a1.8,1.8 0 0 1 -1.8,1.8h-14.4a1.8,1.8 0 0 1 -1.8,-1.8v-9.4a1.8,1.8 0 0 1 1.8,-1.8zM12,7.5v7M6.5,11h11M9,20.5h6"),
         stroke = SolidColor(Color.Black),
         strokeLineWidth = 1.6f,
+        strokeLineCap = androidx.compose.ui.graphics.StrokeCap.Round,
+    )
+    .build()
+
+/** Sun, to go back to the light home; drawn here to match the crescent's weight. */
+private val SunIcon: ImageVector = ImageVector.Builder("Sun", 24.dp, 24.dp, 24f, 24f)
+    .addPath(
+        addPathNodes("M12,7.6a4.4,4.4 0 1 0 0,8.8a4.4,4.4 0 1 0 0,-8.8z"),
+        fill = SolidColor(Color.Black),
+    )
+    .addPath(
+        addPathNodes(
+            "M12,2.4v2.2M12,19.4v2.2M4.2,4.2l1.6,1.6M18.2,18.2l1.6,1.6" +
+                "M2.4,12h2.2M19.4,12h2.2M4.2,19.8l1.6,-1.6M18.2,5.8l1.6,-1.6"
+        ),
+        stroke = SolidColor(Color.Black),
+        strokeLineWidth = 1.9f,
         strokeLineCap = androidx.compose.ui.graphics.StrokeCap.Round,
     )
     .build()
