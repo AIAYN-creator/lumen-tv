@@ -12,6 +12,17 @@ Una Philips de 2009 sin nada de "smart" y un Chromecast con Google TV, convertid
 - **Alertas de gol y de rojas** encima de cualquier app.
 - **Apps propias:** Radio, Ambientes, Cámaras de toda España y GeoGuesser València (multijugador con los móviles).
 
+## Cómo se ve
+
+| Inicio | Salvapantallas |
+|---|---|
+| ![Pantalla de inicio](docs/inicio-claro.png) | ![Salvapantallas](docs/salvapantallas-claro.png) |
+| ![Pantalla de inicio en modo oscuro](docs/inicio-oscuro.png) | ![Salvapantallas de noche](docs/salvapantallas-oscuro.png) |
+
+Arriba el modo claro y abajo el oscuro, que se cambia con el botón de la luna (y se vuelve con el del sol). El salvapantallas de noche es otra cosa distinta: negro, cálido y con lo justo para mirarlo a las tres de la mañana sin despertarse del todo. El fondo es la aurora generada, que es lo que sale cuando no hay fotos en `wallpapers/`.
+
+Las paradas de metro y de bus salen tapadas a propósito.
+
 Todo el código está en [`launcher/`](launcher/). En su [README](launcher/README.md) está cómo compilarlo e instalarlo, qué se cambió en el Chromecast y cómo deshacer cada cambio.
 
 ## Qué no está en el repo
