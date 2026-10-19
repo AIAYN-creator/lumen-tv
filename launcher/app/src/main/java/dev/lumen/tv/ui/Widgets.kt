@@ -153,19 +153,18 @@ fun LineBadge(line: String, color: Long, round: Boolean) {
  * height). [arrivals] null means loading, or no data for a couple of minutes: faint placeholder
  * bars instead of an error message.
  *
- * [walk] is the minutes it takes to reach the platform, and it changes what the module is for:
- * with a walk the label says how far away the stop is and only vehicles you could still catch are
- * listed, so the first line is always a real option rather than one that left while you stood up.
+ * [walk] is the minutes it takes to reach the platform: anything leaving sooner is dropped, so the
+ * three lines are three trains you could actually get to instead of one real option and two you
+ * have already missed. It stays out of the label, which has no room for it at four modules across.
  */
 @Composable
 fun ColumnScope.TransitModule(title: String, arrivals: List<Arrival>?, round: Boolean, rows: Int = 3, walk: Int = 0) {
-    SectionLabel(if (walk > 0) "$title · a $walk min" else title)
+    SectionLabel(title)
     val shown = arrivals?.reachable(walk).orEmpty().take(rows)
     for (i in 0 until rows) {
         val arrival = shown.getOrNull(i)
         when {
-            // Only the first row can say "sal ya": the others are for later anyway.
-            arrival != null -> ArrivalRow(arrival, round, leaveNow = i == 0 && walk > 0 && (arrival.minutes ?: Int.MAX_VALUE) - walk <= 1)
+            arrival != null -> ArrivalRow(arrival, round)
             arrivals == null -> SkeletonRow(SKELETON_WIDTHS[i % SKELETON_WIDTHS.size])
             // Trains are running, you just cannot reach any of them in time. Worth saying, because
             // it is not the same as the line having stopped for the night.
@@ -187,7 +186,7 @@ fun SkeletonRow(widthFraction: Float) {
 }
 
 @Composable
-private fun ArrivalRow(arrival: Arrival, round: Boolean, leaveNow: Boolean = false) {
+private fun ArrivalRow(arrival: Arrival, round: Boolean) {
     Row(Modifier.height(22.dp), verticalAlignment = Alignment.CenterVertically) {
         LineBadge(arrival.line, arrival.color, round)
         Text(
@@ -197,20 +196,15 @@ private fun ArrivalRow(arrival: Arrival, round: Boolean, leaveNow: Boolean = fal
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(start = 10.dp, end = 8.dp).weight(1f),
         )
-        WaitText(arrival, leaveNow)
+        WaitText(arrival)
     }
 }
 
-/**
- * "4 min" with a light number and a small unit; "0 min" and EMT's "Próximo" become "ahora".
- * When [leaveNow] it says "sal ya" instead: the minutes would be the train's, and what you need
- * at that moment is yours.
- */
+/** "4 min" with a light number and a small unit; "0 min" and EMT's "Próximo" become "ahora". */
 @Composable
-private fun WaitText(arrival: Arrival, leaveNow: Boolean) {
+private fun WaitText(arrival: Arrival) {
     val minutes = arrival.minutes
     val text = when {
-        leaveNow -> buildAnnotatedString { withStyle(SpanStyle(fontWeight = FontWeight(600))) { append("sal ya") } }
         minutes == 0 -> buildAnnotatedString { withStyle(SpanStyle(fontWeight = FontWeight(600))) { append("ahora") } }
         minutes != null -> buildAnnotatedString {
             append("$minutes")
