@@ -70,6 +70,7 @@ import dev.lumen.tv.ui.Type
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.net.HttpURLConnection
@@ -125,8 +126,14 @@ class CamerasActivity : ComponentActivity() {
 
 /** València city cameras are live but the city's viewer ends each view 20 s after it opens. */
 private const val LIVE_SECONDS = 18
-/** A camera that hasn't started playing by then is probably offline: try another. */
-private const val LIVE_START_TIMEOUT = 8_000L
+/**
+ * How long a live camera gets to be playing before it is written off. The city's viewer took
+ * 5.3 s just to open the stream on 19 Oct, so the old 8 s budget wrote off cameras that were
+ * perfectly fine and left every pick showing a DGT still instead.
+ */
+private const val LIVE_START_TIMEOUT = 20_000L
+/** How long to keep the previous picture before admitting we are waiting for a live camera. */
+private const val LIVE_PATIENCE = 1_200L
 /** Share of picks that go to the (live) València cameras. */
 private const val VALENCIA_SHARE = 0.25
 
@@ -147,10 +154,19 @@ private fun CamerasScreen(live: LiveCamera) {
     LaunchedEffect(cameras, advance) {
         val list = cameras ?: return@LaunchedEffect
         if (list.isEmpty()) return@LaunchedEffect
+        var liveTried = false
         repeat(8) {
-            val camera = pick(list)
+            // One live attempt per press: with a 20 s budget, eight failures in a row would
+            // leave the screen stuck for minutes if the city's viewer were down.
+            val camera = pick(list, allowLive = !liveTried)
             val next = if (camera.source == Camera.Source.VALENCIA) {
-                if (live.start(camera)) Shown.Live(camera) else null
+                liveTried = true
+                // The press has to do something. Keep the previous picture for a moment in case
+                // the camera opens quickly, then say what we are waiting for.
+                val waiting = launch { delay(LIVE_PATIENCE); shown = Shown.Live(camera) }
+                val ok = live.start(camera)
+                waiting.cancel()
+                if (ok) Shown.Live(camera) else null
             } else {
                 loadStill(camera)
             }
@@ -264,6 +280,7 @@ class LiveCamera(context: Context) {
         webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView, url: String?) {
                 val camera = current?.takeIf { it.liveUrl == url } ?: return
+                android.util.Log.i("Lumen", "Camera ${camera.id} page ready in ${SystemClock.uptimeMillis() - openedAt} ms")
                 view.evaluateJavascript(FULLSCREEN_VIDEO_CSS, null)
                 view.evaluateJavascript(PLAYBACK_WATCHDOG, null)
                 // Health check in the log: is the video advancing, and how often did the watchdog step in?
@@ -287,8 +304,11 @@ class LiveCamera(context: Context) {
         view.alpha = 0f
         view.loadUrl(camera.liveUrl)
         val started = withTimeoutOrNull(LIVE_START_TIMEOUT) { snapshotFlow { playing }.first { it } } != null
-        if (!started) {
-            android.util.Log.i("Lumen", "Camera ${camera.id} didn't start; skipping")
+        val took = SystemClock.uptimeMillis() - openedAt
+        if (started) {
+            android.util.Log.i("Lumen", "Camera ${camera.id} playing after $took ms")
+        } else {
+            android.util.Log.i("Lumen", "Camera ${camera.id} didn't start in $took ms; skipping")
             stop()
         }
         return started
@@ -423,8 +443,8 @@ private fun InfoCorner(shown: Shown, modifier: Modifier) {
     }
 }
 
-private fun pick(cameras: List<Camera>): Camera {
-    val valencia = cameras.filter { it.source == Camera.Source.VALENCIA }
+private fun pick(cameras: List<Camera>, allowLive: Boolean = true): Camera {
+    val valencia = if (allowLive) cameras.filter { it.source == Camera.Source.VALENCIA } else emptyList()
     val dgt = cameras.filter { it.source == Camera.Source.DGT }
     val pool = if (valencia.isNotEmpty() && (dgt.isEmpty() || Math.random() < VALENCIA_SHARE)) valencia else dgt
     return pool.random()
