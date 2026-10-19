@@ -8,6 +8,7 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
+import java.time.LocalTime
 import kotlin.math.roundToInt
 
 /** A station, plus the minutes it takes to get from the front door to its platform. */
@@ -44,6 +45,14 @@ private const val PROJECTION_HORIZON = 20
 private val SANE_GAP = 2.0..15.0
 
 /**
+ * Estimates are only made between these hours. Near the end of service a steady gap stops meaning
+ * there is another train: the last two can be ten minutes apart and then there is simply no third
+ * one, which is the one ghost the gap check cannot catch. The window closes before that happens
+ * and does not reopen after midnight, when the metro is still running on a Friday but winding down.
+ */
+private val ESTIMATING_HOURS = 6 until 23
+
+/**
  * The trains the panel cannot see yet, carried forward from the ones it can.
  *
  * The panel only knows trains already in service, around twenty minutes ahead. For a station you
@@ -58,7 +67,7 @@ private val SANE_GAP = 2.0..15.0
  * all of that stops matching and the card goes back to saying it cannot see that far.
  */
 fun List<Arrival>.projected(walk: Int): List<Arrival> {
-    if (walk <= 0) return emptyList()
+    if (walk <= 0 || LocalTime.now().hour !in ESTIMATING_HOURS) return emptyList()
     return groupBy { it.destination }
         .flatMap { (_, group) ->
             val times = group.mapNotNull { it.minutes }.sorted()
