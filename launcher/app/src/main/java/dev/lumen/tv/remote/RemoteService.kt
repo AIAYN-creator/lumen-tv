@@ -264,10 +264,9 @@ class RemoteService : AccessibilityService() {
                     startActivity(Intent(this, ScreensaverActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK).putExtra(ScreensaverActivity.EXTRA_NIGHT, true))
                 }
             }
-            // Same as the moon button on the home screen: turning night on also shows it.
-            "night" -> if (HouseState.toggleNight(this)) main.post {
-                runCatching { startActivity(Intent(this, ScreensaverActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-            }
+            // Same as the moon button on the home screen: it switches the look and stays put.
+            // The screensaver has its own key, right next to it.
+            "night" -> HouseState.toggleNight(this)
             "screensaver" -> main.post {
                 runCatching { startActivity(Intent(this, ScreensaverActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
             }

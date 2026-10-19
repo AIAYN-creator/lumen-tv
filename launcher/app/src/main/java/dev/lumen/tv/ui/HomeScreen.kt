@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.provider.Settings
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -38,6 +39,8 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -84,6 +87,17 @@ import dev.lumen.tv.state.HouseState
 
 private val SIDE_PADDING = 48.dp
 
+/**
+ * Dark mode on the home screen: no wallpaper at all (black costs the GPU nothing and the
+ * bitmap isn't even decoded), and one veil over everything else. The veil multiplies by the
+ * screensaver's warm tone and then dims, so white type lands on the same colour N2 uses and
+ * the app banners — the brightest thing on screen at 3 a.m. — come down with it.
+ *
+ * Two flat rectangles, no gradients and no offscreen layer: on this hardware that is free.
+ */
+private val DarkTint = Color(0xFFFFE2C2)
+private const val DARK_DIM = 0.42f
+
 @Composable
 fun HomeScreen() {
     val context = LocalContext.current
@@ -97,14 +111,23 @@ fun HomeScreen() {
     }
 
     var showQr by remember { mutableStateOf(false) }
+    val dark = rememberNight()
 
-    Box(Modifier.fillMaxSize()) {
-        StaticWallpaper(Modifier.fillMaxSize(), intervalMillis = 10 * 60_000L)
+    Box(Modifier.fillMaxSize().background(Color.Black)) {
+        if (!dark) StaticWallpaper(Modifier.fillMaxSize(), intervalMillis = 10 * 60_000L)
         // Rows run edge to edge (with content padding) so focused tiles can grow without being clipped.
         Column(Modifier.fillMaxSize().padding(vertical = 28.dp)) {
-            Header(context, onShowQr = { showQr = true }, modifier = Modifier.padding(horizontal = SIDE_PADDING))
+            Header(context, dark, onShowQr = { showQr = true }, modifier = Modifier.padding(horizontal = SIDE_PADDING))
             Spacer(Modifier.weight(1f))
             AppRows(apps, onLaunch = { context.launch(it) })
+        }
+        if (dark) {
+            Box(
+                Modifier.fillMaxSize().drawBehind {
+                    drawRect(DarkTint, blendMode = BlendMode.Multiply)
+                    drawRect(Color.Black.copy(alpha = DARK_DIM))
+                },
+            )
         }
         if (showQr) {
             // Any key closes the QR sheet.
@@ -126,7 +149,7 @@ fun HomeScreen() {
  * warnings, sleep timer and buttons.
  */
 @Composable
-private fun Header(context: Context, onShowQr: () -> Unit, modifier: Modifier = Modifier) {
+private fun Header(context: Context, dark: Boolean, onShowQr: () -> Unit, modifier: Modifier = Modifier) {
     val now = rememberNow()
     val weather = rememberWeather()
     val alerts = rememberAlerts()
@@ -134,7 +157,6 @@ private fun Header(context: Context, onShowQr: () -> Unit, modifier: Modifier = 
     val media = rememberNowPlaying()
     val sports = rememberSports()
     val sleepMinutes = rememberSleepMinutes()
-    val night = rememberNight()
 
     Row(modifier.fillMaxWidth().height(HEADER_HEIGHT)) {
         Hero(heroItems(notes, media, sports), weather, now, Modifier.weight(1f).padding(top = 4.dp, end = 40.dp))
@@ -146,9 +168,10 @@ private fun Header(context: Context, onShowQr: () -> Unit, modifier: Modifier = 
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 RoundButton(PanelIcon, "Salvapantallas") { context.openScreensaver() }
-                // Turning night on opens the screensaver straight away (bedtime); off just switches.
-                RoundButton(MoonIcon, if (night) "Quitar el modo noche" else "Modo noche", active = night) {
-                    if (HouseState.toggleNight(context)) context.openScreensaver()
+                // Switches the look and leaves you here. The screensaver has its own button;
+                // before the home had a dark mode, turning this on jumped straight to it.
+                RoundButton(MoonIcon, if (dark) "Quitar el modo oscuro" else "Modo oscuro", active = dark) {
+                    HouseState.toggleNight(context)
                 }
                 RoundButton(PhoneIcon, "Mando en el móvil", onClick = onShowQr)
                 RoundButton(Icons.Filled.AccountCircle, "Cuentas y perfiles") { context.openAccounts() }
