@@ -15,3 +15,6 @@ build/
 local.properties
 .idea/
 *.iml
+
+# Log del vigilante de Bluetooth
+launcher/bt-watchdog.log

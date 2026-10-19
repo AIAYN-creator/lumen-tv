@@ -97,6 +97,21 @@ Si el router le cambia la IP al Chromecast, cambia la dirección del mando. Conv
 - **El mando del móvil no conecta:** comprueba que el móvil está en el WiFi de casa y que el Chromecast conserva la IP `192.168.0.18`. Si Lumen se detiene a la fuerza (desde Ajustes → Aplicaciones), Android apaga su servicio de accesibilidad: `.\deploy.ps1 -NoBuild` lo vuelve a activar.
 - **Tras reiniciar el Chromecast,** ADB ya no escucha en el 5555. Mira el puerto nuevo en Opciones para desarrolladores → Depuración inalámbrica, ejecuta `adb connect <ip>:<puerto>` y luego `adb tcpip 5555`.
 - **Si una actualización de Google TV reactiva su launcher,** repite los dos `pm disable-user` de la tabla de arriba.
+- **El mando Bluetooth no responde** (el del Chromecast, no el del móvil): el stack de Bluetooth se atasca cuando lleva semanas encendido. No hace falta desenchufar nada, basta con reiniciarlo: `.t-watchdog.ps1 -Force`. Tarda diez segundos y el mando vuelve al pulsar cualquier tecla.
+
+## Que el Bluetooth no se vuelva a atascar
+
+El mando BLE deja de reconectarse cuando el stack de Bluetooth lleva mucho tiempo sin reiniciarse: se cayó solo el 30 de septiembre y hubo que reiniciarlo a mano el 19 de octubre, con 18 días de la misma sesión. Reiniciar el stack lo arregla en cuatro segundos; desenchufar el Chromecast no es un arreglo, es un reinicio.
+
+`bt-watchdog.ps1` lo reinicia **antes** de que se atasque, y sólo cuando la tele está parada en su panel: si hay alguien viendo Prime o jugando al GeoGuesser, lo deja para la siguiente vez. Al mando le da igual, porque ya se reconecta solo al pulsar una tecla después de media hora inactivo.
+
+```powershell
+.t-watchdog.ps1 -Status   # qué ve y qué haría, sin tocar nada
+.t-watchdog.ps1 -Force    # reiniciar el Bluetooth ahora
+.\install-bt-watchdog.ps1   # tarea programada diaria (quitar con -Remove)
+```
+
+La tarea corre cada día a las 04:30 y casi siempre no hace nada: sólo actúa pasados 7 días encendido. Deja constancia en `bt-watchdog.log`. Si el PC está apagado a esa hora, la comprobación se salta ese día — el mando del móvil funciona igual, porque va por WiFi y no por Bluetooth.
 
 ### GeoGuesser: controles y modo administrador
 
