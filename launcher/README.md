@@ -21,6 +21,8 @@ Mete fotos (`.jpg`, `.png` o `.webp`) en la carpeta `wallpapers` del proyecto y 
 - **Partidos:** el Valencia CF y el Levante salen del calendario de LaLiga de ESPN (resultados, próximo partido y directo). TheSportsDB se saltaba partidos, como el Deportivo 1–1 Levante. El basket sale de TheSportsDB, con el directo de la Euroliga desde ESPN. Si se cae la red, cada equipo sigue mostrando su último resultado bueno.
 - **Metro:** el mismo servicio que usa el panel de "próximos trenes" de metrovalencia.es. No es una API oficial, así que puede dejar de funcionar si cambian la web. El sitio no envía su certificado intermedio de Sectigo, así que la app lo incluye (`res/raw`) y solo lo usa para ese dominio.
 
+  Cada estación lleva en `Config.kt` los minutos que se tarda en llegar a su andén (`walk`), y los trenes que salen antes de eso no se enseñan: un tren dentro de dos minutos en una estación que está a quince no es información, es un tren que vas a perder. El primero al que sí llegas, si vas justo, pone "sal ya" en lugar de los minutos. Si hay trenes pero no te da tiempo a ninguno, lo dice ("No llegas a ninguno"), que no es lo mismo que no haber servicio. Las paradas de bus van con `walk = 0`, sin filtrar, porque la EMT sólo anuncia uno o dos autobuses por línea y filtrarlos dejaría la tarjeta vacía.
+
 El puerto 5555 dura hasta que se reinicia el Chromecast. Después de un reinicio, mira el puerto nuevo en Opciones para desarrolladores → Depuración inalámbrica, conecta a ese puerto y ejecuta `adb tcpip 5555`.
 
 ## Qué se ha cambiado en el Chromecast
@@ -125,4 +127,4 @@ La tarea corre cada día a las 04:30 y casi siempre no hace nada: sólo actúa p
 
 ## Ajustes
 
-La ciudad, la zona de avisos, la estación de metro y las apps favoritas están en `app/src/main/java/dev/lumen/tv/Config.kt`.
+La ciudad, la zona de avisos, las estaciones de metro (con sus minutos a pie), las paradas de bus y las apps favoritas están en `app/src/main/java/dev/lumen/tv/Config.kt`.

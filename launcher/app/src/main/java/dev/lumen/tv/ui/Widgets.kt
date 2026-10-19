@@ -41,6 +41,7 @@ import dev.lumen.tv.data.ImageCache
 import dev.lumen.tv.data.MatchState
 import dev.lumen.tv.data.TeamCard
 import dev.lumen.tv.data.WeatherAlert
+import dev.lumen.tv.data.reachable
 import java.time.Instant
 import java.time.LocalDate
 import java.time.OffsetDateTime
@@ -151,16 +152,24 @@ fun LineBadge(line: String, color: Long, round: Boolean) {
  * Label plus exactly [rows] arrival lines (blank lines are kept so every module is the same
  * height). [arrivals] null means loading, or no data for a couple of minutes: faint placeholder
  * bars instead of an error message.
+ *
+ * [walk] is the minutes it takes to reach the platform, and it changes what the module is for:
+ * with a walk the label says how far away the stop is and only vehicles you could still catch are
+ * listed, so the first line is always a real option rather than one that left while you stood up.
  */
 @Composable
-fun ColumnScope.TransitModule(title: String, arrivals: List<Arrival>?, round: Boolean, rows: Int = 3) {
-    SectionLabel(title)
-    val shown = arrivals.orEmpty().take(rows)
+fun ColumnScope.TransitModule(title: String, arrivals: List<Arrival>?, round: Boolean, rows: Int = 3, walk: Int = 0) {
+    SectionLabel(if (walk > 0) "$title · a $walk min" else title)
+    val shown = arrivals?.reachable(walk).orEmpty().take(rows)
     for (i in 0 until rows) {
         val arrival = shown.getOrNull(i)
         when {
-            arrival != null -> ArrivalRow(arrival, round)
+            // Only the first row can say "sal ya": the others are for later anyway.
+            arrival != null -> ArrivalRow(arrival, round, leaveNow = i == 0 && walk > 0 && (arrival.minutes ?: Int.MAX_VALUE) - walk <= 1)
             arrivals == null -> SkeletonRow(SKELETON_WIDTHS[i % SKELETON_WIDTHS.size])
+            // Trains are running, you just cannot reach any of them in time. Worth saying, because
+            // it is not the same as the line having stopped for the night.
+            i == 0 && arrivals.isNotEmpty() -> Text("No llegas a ninguno", style = Type.body.copy(color = Tone.tertiary), modifier = Modifier.height(22.dp))
             i == 0 -> Text("Sin servicio próximo", style = Type.body.copy(color = Tone.tertiary), modifier = Modifier.height(22.dp))
             else -> Spacer(Modifier.height(22.dp))
         }
@@ -178,7 +187,7 @@ fun SkeletonRow(widthFraction: Float) {
 }
 
 @Composable
-private fun ArrivalRow(arrival: Arrival, round: Boolean) {
+private fun ArrivalRow(arrival: Arrival, round: Boolean, leaveNow: Boolean = false) {
     Row(Modifier.height(22.dp), verticalAlignment = Alignment.CenterVertically) {
         LineBadge(arrival.line, arrival.color, round)
         Text(
@@ -188,22 +197,26 @@ private fun ArrivalRow(arrival: Arrival, round: Boolean) {
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(start = 10.dp, end = 8.dp).weight(1f),
         )
-        WaitText(arrival.wait)
+        WaitText(arrival, leaveNow)
     }
 }
 
-/** "4 min" with a light number and a small unit; "0 min" and EMT's "Próximo" become "ahora". */
+/**
+ * "4 min" with a light number and a small unit; "0 min" and EMT's "Próximo" become "ahora".
+ * When [leaveNow] it says "sal ya" instead: the minutes would be the train's, and what you need
+ * at that moment is yours.
+ */
 @Composable
-private fun WaitText(wait: String) {
-    val minutes = Regex("""^(\d+)\s*min""").find(wait)?.groupValues?.get(1)
-    val arriving = minutes == "0" || wait.startsWith("Pr", ignoreCase = true) || wait.startsWith("Llegando", ignoreCase = true)
+private fun WaitText(arrival: Arrival, leaveNow: Boolean) {
+    val minutes = arrival.minutes
     val text = when {
-        arriving -> buildAnnotatedString { withStyle(SpanStyle(fontWeight = FontWeight(600))) { append("ahora") } }
+        leaveNow -> buildAnnotatedString { withStyle(SpanStyle(fontWeight = FontWeight(600))) { append("sal ya") } }
+        minutes == 0 -> buildAnnotatedString { withStyle(SpanStyle(fontWeight = FontWeight(600))) { append("ahora") } }
         minutes != null -> buildAnnotatedString {
-            append(minutes)
+            append("$minutes")
             withStyle(SpanStyle(fontSize = 11.sp, color = Tone.tertiary)) { append(" min") }
         }
-        else -> buildAnnotatedString { append(wait) }
+        else -> buildAnnotatedString { append(arrival.wait) }
     }
     Text(text, style = Type.figure, maxLines = 1)
 }

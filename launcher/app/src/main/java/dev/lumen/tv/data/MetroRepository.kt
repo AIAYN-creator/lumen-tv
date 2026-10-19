@@ -9,10 +9,26 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
 
-data class MetroStation(val id: Int, val name: String)
+/** A station, plus the minutes it takes to get from the front door to its platform. */
+data class MetroStation(val id: Int, val name: String, val walk: Int = 0)
 
 /** One upcoming vehicle, for metro or bus cards. */
-data class Arrival(val line: String, val color: Long, val destination: String, val wait: String)
+data class Arrival(val line: String, val color: Long, val destination: String, val wait: String) {
+    /** The wait in whole minutes; EMT's "Próximo" is zero, and anything unparseable is null. */
+    val minutes: Int?
+        get() = when {
+            wait.startsWith("Pr", ignoreCase = true) || wait.startsWith("Llegando", ignoreCase = true) -> 0
+            else -> Regex("""^(\d+)""").find(wait)?.groupValues?.get(1)?.toIntOrNull()
+        }
+}
+
+/**
+ * The arrivals that are still worth knowing about, where [walk] is the minutes from the front door
+ * to the platform. A train leaving in two minutes from a station fifteen minutes away is not
+ * information, it is a train you are going to miss, so it goes. A walk of 0 filters nothing.
+ */
+fun List<Arrival>.reachable(walk: Int): List<Arrival> =
+    if (walk <= 0) this else filter { (it.minutes ?: Int.MAX_VALUE) >= walk }
 
 /**
  * Next trains at a Metrovalencia station. There is no public API, so this calls the same

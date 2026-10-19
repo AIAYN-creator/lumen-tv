@@ -50,6 +50,7 @@ import dev.lumen.tv.ui.AlertStatus
 import dev.lumen.tv.ui.WeatherGlyph
 import dev.lumen.tv.data.HourForecast
 import dev.lumen.tv.data.Weather
+import dev.lumen.tv.data.reachable
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.layout.Arrangement
 import java.time.format.DateTimeFormatter
@@ -214,7 +215,7 @@ private fun NightScreen() {
                 }
                 stations.forEach { (station, arrivals) ->
                     NightItem("Metro · ${station.name}") {
-                        val first = arrivals?.firstOrNull()
+                        val first = arrivals?.reachable(station.walk)?.firstOrNull()
                         NightValue(first?.let { nightTime(it.wait) } ?: "—")
                         NightDetail(first?.let { "L${it.line} · ${it.destination}" } ?: "Sin servicio")
                     }
@@ -392,7 +393,7 @@ private fun TransitGrid() {
     val modules = mutableListOf<@Composable ColumnScope.() -> Unit>()
     Config.METRO_STATIONS.forEach { station ->
         val arrivals = rememberMetro(station)
-        modules += { TransitModule("Metro · ${station.name}", arrivals, round = true) }
+        modules += { TransitModule("Metro · ${station.name}", arrivals, round = true, walk = station.walk) }
     }
     Config.BUS_STOPS.forEach { stop ->
         val arrivals = rememberBus(stop)

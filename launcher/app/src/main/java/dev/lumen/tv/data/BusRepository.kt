@@ -8,7 +8,7 @@ import org.xmlpull.v1.XmlPullParser
 import java.net.HttpURLConnection
 import java.net.URL
 
-data class BusStop(val line: String, val stopId: Int, val name: String)
+data class BusStop(val line: String, val stopId: Int, val name: String, val walk: Int = 0)
 
 /** EMT Valencia real-time arrivals, from the endpoint behind the map on emtvalencia.es. */
 object BusRepository {
