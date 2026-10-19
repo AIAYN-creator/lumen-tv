@@ -8,12 +8,19 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
+import kotlin.math.roundToInt
 
 /** A station, plus the minutes it takes to get from the front door to its platform. */
 data class MetroStation(val id: Int, val name: String, val walk: Int = 0)
 
-/** One upcoming vehicle, for metro or bus cards. */
-data class Arrival(val line: String, val color: Long, val destination: String, val wait: String) {
+/** One upcoming vehicle, for metro or bus cards. [estimated] ones are worked out, not announced. */
+data class Arrival(
+    val line: String,
+    val color: Long,
+    val destination: String,
+    val wait: String,
+    val estimated: Boolean = false,
+) {
     /** The wait in whole minutes; EMT's "Próximo" is zero, and anything unparseable is null. */
     val minutes: Int?
         get() = when {
@@ -29,6 +36,45 @@ data class Arrival(val line: String, val color: Long, val destination: String, v
  */
 fun List<Arrival>.reachable(walk: Int): List<Arrival> =
     if (walk <= 0) this else filter { (it.minutes ?: Int.MAX_VALUE) >= walk }
+
+/** How far past the walk it is worth guessing. Three trains is plenty; a whole evening is not. */
+private const val PROJECTION_HORIZON = 20
+
+/** Gaps outside this are the service winding down or starting up, and no longer a rhythm. */
+private val SANE_GAP = 2.0..15.0
+
+/**
+ * The trains the panel cannot see yet, carried forward from the ones it can.
+ *
+ * The panel only knows trains already in service, around twenty minutes ahead. For a station you
+ * reach in nineteen, that horizon ends more or less where your walk does, so it can sit there with
+ * nothing to offer while a train passes every three minutes. Each destination keeps a fairly even
+ * gap, so this measures the gap it has been keeping and carries it forward, which is the sum you
+ * would do in your head anyway. They are estimates, there can be delays, and they say so with a ~.
+ *
+ * Nothing is invented out of thin air: a destination needs at least two announced trains before its
+ * gap means anything, the gap has to look like a working frequency, and the guesses stop
+ * [PROJECTION_HORIZON] minutes past the walk. When the last trains of the night are thinning out,
+ * all of that stops matching and the card goes back to saying it cannot see that far.
+ */
+fun List<Arrival>.projected(walk: Int): List<Arrival> {
+    if (walk <= 0) return emptyList()
+    return groupBy { it.destination }
+        .flatMap { (_, group) ->
+            val times = group.mapNotNull { it.minutes }.sorted()
+            if (times.size < 2) return@flatMap emptyList()
+            val gap = (times.last() - times.first()).toDouble() / (times.size - 1)
+            if (gap !in SANE_GAP) return@flatMap emptyList()
+            // Always strictly later than the last announced train of this destination, so a guess
+            // can never collide with, or repeat, a real one.
+            generateSequence(times.last() + gap) { it + gap }
+                .takeWhile { it <= walk + PROJECTION_HORIZON }
+                .filter { it >= walk }
+                .map { group.last().copy(wait = "${it.roundToInt()} min", estimated = true) }
+                .toList()
+        }
+        .sortedBy { it.minutes ?: Int.MAX_VALUE }
+}
 
 /**
  * Next trains at a Metrovalencia station. There is no public API, so this calls the same

@@ -41,6 +41,7 @@ import dev.lumen.tv.data.ImageCache
 import dev.lumen.tv.data.MatchState
 import dev.lumen.tv.data.TeamCard
 import dev.lumen.tv.data.WeatherAlert
+import dev.lumen.tv.data.projected
 import dev.lumen.tv.data.reachable
 import java.time.Instant
 import java.time.LocalDate
@@ -156,19 +157,29 @@ fun LineBadge(line: String, color: Long, round: Boolean) {
  * [walk] is the minutes it takes to reach the platform: anything leaving sooner is dropped, so the
  * three lines are three trains you could actually get to instead of one real option and two you
  * have already missed. It stays out of the label, which has no room for it at four modules across.
+ *
+ * When the panel's own horizon is as short as the walk it can leave the card half empty, so the
+ * rest is filled with trains carried forward from the rhythm the announced ones are keeping. Those
+ * are marked, and they are only ever added after the real ones, never instead of them.
  */
 @Composable
 fun ColumnScope.TransitModule(title: String, arrivals: List<Arrival>?, round: Boolean, rows: Int = 3, walk: Int = 0) {
     SectionLabel(title)
-    val shown = arrivals?.reachable(walk).orEmpty().take(rows)
+    val catchable = arrivals?.reachable(walk).orEmpty()
+    val shown = (if (catchable.size >= rows) catchable else catchable + arrivals.orEmpty().projected(walk))
+        .sortedBy { it.minutes ?: Int.MAX_VALUE }
+        .take(rows)
     for (i in 0 until rows) {
         val arrival = shown.getOrNull(i)
         when {
             arrival != null -> ArrivalRow(arrival, round)
             arrivals == null -> SkeletonRow(SKELETON_WIDTHS[i % SKELETON_WIDTHS.size])
-            // Trains are running, you just cannot reach any of them in time. Worth saying, because
-            // it is not the same as the line having stopped for the night.
-            i == 0 && arrivals.isNotEmpty() -> Text("No llegas a ninguno", style = Type.body.copy(color = Tone.tertiary), modifier = Modifier.height(22.dp))
+            // Trains are running, they are just all inside the walk. This is the panel admitting
+            // its own horizon, not scarcity: it only knows trains already in service, about twenty
+            // minutes ahead, so for a station further away than that it has nothing to offer yet.
+            // Saying "you cannot reach any of them" read as "expect a long wait", which is the
+            // opposite of the truth.
+            i == 0 && arrivals.isNotEmpty() -> Text("El panel no ve tan lejos", style = Type.body.copy(color = Tone.tertiary), modifier = Modifier.height(22.dp))
             i == 0 -> Text("Sin servicio próximo", style = Type.body.copy(color = Tone.tertiary), modifier = Modifier.height(22.dp))
             else -> Spacer(Modifier.height(22.dp))
         }
@@ -207,6 +218,8 @@ private fun WaitText(arrival: Arrival) {
     val text = when {
         minutes == 0 -> buildAnnotatedString { withStyle(SpanStyle(fontWeight = FontWeight(600))) { append("ahora") } }
         minutes != null -> buildAnnotatedString {
+            // The tilde is the whole disclaimer: this one is a guess, not an announcement.
+            if (arrival.estimated) withStyle(SpanStyle(color = Tone.tertiary)) { append("~") }
             append("$minutes")
             withStyle(SpanStyle(fontSize = 11.sp, color = Tone.tertiary)) { append(" min") }
         }
