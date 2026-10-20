@@ -55,6 +55,7 @@ object Config {
         "com.amazon.amazonvideo.livingroom",
         "com.wbd.stream",
         "com.google.android.youtube.tv",
+        "com.stremio.one",
         "com.spotify.tv.android",
         "dev.lumen.tv/dev.lumen.tv.radio.RadioActivity",
     )
