@@ -34,6 +34,11 @@ android {
     buildFeatures {
         compose = true
     }
+
+    // Home stops: the real ones in src/stops-local (gitignored), else the examples.
+    sourceSets.getByName("main").kotlin.srcDir(
+        if (file("src/stops-local").exists()) "src/stops-local/java" else "src/stops-example/java"
+    )
 }
 
 dependencies {
